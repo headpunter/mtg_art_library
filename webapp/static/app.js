@@ -87,7 +87,9 @@ async function openCard(slug) {
 }
 
 $$(".card").forEach(c => {
-  c.addEventListener("click", () => openCard(c.dataset.slug));
+  c.addEventListener("click", () => {
+    window.location.href = `/card/${encodeURIComponent(c.dataset.slug)}`;
+  });
 });
 
 /* ── add-card modal ──────────────────────────────────────────────── */

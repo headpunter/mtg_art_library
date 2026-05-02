@@ -342,6 +342,86 @@ def api_jobs():
 
 # ---------- build view ----------
 
+@app.route("/card/<slug>")
+def card_detail(slug: str):
+    lib = get_lib()
+    card = lib.cards.get(slug)
+    if not card:
+        abort(404)
+    default_thumb = None
+    if card.default and card.default in card.printings:
+        p = lib.file_path(slug, card.default)
+        if p.exists():
+            default_thumb = f"{slug}/{card.default}"
+    exists = {pid: lib.file_path(slug, pid).exists() for pid in card.printings}
+    return render_template(
+        "card.html",
+        slug=slug,
+        card=card,
+        default_thumb=default_thumb,
+        exists=exists,
+        canonical_dpi=lib.canonical_dpi,
+        canonical_w=lib.canonical_size[0],
+        canonical_h=lib.canonical_size[1],
+    )
+
+
+@app.route("/api/card/<slug>", methods=["DELETE"])
+def api_delete_card(slug: str):
+    import shutil
+    lib = get_lib()
+    if slug not in lib.cards:
+        abort(404)
+    art_folder = lib.file_path(slug, "x").parent
+    if art_folder.exists():
+        shutil.rmtree(art_folder, ignore_errors=True)
+    del lib.cards[slug]
+    lib.save()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/card/<slug>/printing/<pid>/bleed", methods=["POST"])
+def api_update_bleed(slug: str, pid: str):
+    lib = get_lib()
+    card = lib.cards.get(slug)
+    if not card or pid not in card.printings:
+        abort(404)
+    new_bleed = (request.json or {}).get("bleed")
+    if new_bleed not in ("mirror", "edge", "black", "white"):
+        return jsonify({"error": "invalid bleed method"}), 400
+    card.printings[pid].bleed = new_bleed
+    lib.save()
+    return jsonify({"ok": True, "bleed": new_bleed})
+
+
+@app.route("/api/card/<slug>/printing/<pid>/reprocess", methods=["POST"])
+def api_reprocess_printing(slug: str, pid: str):
+    lib = get_lib()
+    card = lib.cards.get(slug)
+    if not card or pid not in card.printings:
+        abort(404)
+    p = card.printings[pid]
+    if p.source != "scryfall":
+        return jsonify({"error": "only Scryfall-sourced printings can be re-processed"}), 400
+
+    def run(job):
+        lib2 = get_lib()
+        c = lib2.cards[slug]
+        pr = c.printings[pid]
+        job.update("Re-downloading from Scryfall…")
+        slug_out, pid_out = ingest_scryfall(
+            lib2, c.name,
+            set_code=pr.set, collector_num=pr.collector_number,
+            bleed_method=pr.bleed,
+            make_default=(c.default == pid),
+        )
+        lib2.save()
+        return {"slug": slug_out, "printing_id": pid_out}
+
+    job = jobs.submit(f"Re-processing {card.name} / {pid}", run)
+    return jsonify(job.to_dict())
+
+
 @app.route("/build")
 def build_view():
     return render_template("build.html")

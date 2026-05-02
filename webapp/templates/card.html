@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ card.name }} — MTG Art Library{% endblock %}
+{% block page_id %}card{% endblock %}
+
+{% block content %}
+<div class="card-detail-layout">
+
+  <!-- ── left: hero + meta ────────────────────────────────────── -->
+  <aside class="card-aside">
+    <a href="{{ url_for('library_view') }}" class="breadcrumb">‹ Library</a>
+
+    <div class="card-hero-wrap">
+      {% if default_thumb %}
+        <img class="card-hero-img" id="heroImg"
+             src="{{ url_for('thumb', rel=default_thumb) }}" alt="{{ card.name }}">
+      {% else %}
+        <div class="card-hero-img card-hero-empty" id="heroImg">no art</div>
+      {% endif %}
+    </div>
+
+    <h1 class="card-detail-name">{{ card.name }}</h1>
+    <div class="card-detail-sub">
+      <span class="mono">{{ slug }}</span>
+      <span class="mono dim"> · {{ card.printings|length }} printing{{ 's' if card.printings|length != 1 }}</span>
+    </div>
+
+    <div class="card-meta-grid">
+      <span class="meta-key">Default</span>
+      <span class="meta-val mono" id="defaultLabel">{{ card.default or '—' }}</span>
+      <span class="meta-key">DPI</span>
+      <span class="meta-val mono">{{ canonical_dpi }}</span>
+      <span class="meta-key">Size</span>
+      <span class="meta-val mono">{{ canonical_w }}×{{ canonical_h }}</span>
+    </div>
+
+    <div class="card-aside-footer">
+      <button class="btn primary btn-wide" id="btnAddPrinting">+ Add printing</button>
+      <button class="btn danger btn-wide" id="btnDeleteCard">Delete card</button>
+    </div>
+  </aside>
+
+  <!-- ── right: printings list ────────────────────────────────── -->
+  <div class="card-detail-main">
+
+    <div class="card-main-header">
+      <span class="section-label">Printings</span>
+    </div>
+
+    <div class="printings-list" id="printingsList">
+      {% for pid, p in card.printings.items() %}
+      <div class="printing-card {% if pid == card.default %}is-default{% endif %}"
+           data-pid="{{ pid }}" data-source="{{ p.source }}">
+
+        <div class="pc-thumb">
+          {% if exists[pid] %}
+            <img src="{{ url_for('thumb', rel=slug+'/'+pid) }}" alt="{{ pid }}">
+          {% else %}
+            <div class="pc-thumb-missing">missing</div>
+          {% endif %}
+        </div>
+
+        <div class="pc-meta">
+          <div class="pc-pid">
+            <span class="pc-pid-text">{{ pid }}</span>
+            {% if pid == card.default %}
+              <span class="default-tag">default</span>
+            {% endif %}
+          </div>
+          <div class="pc-details">
+            {% if p.set %}<span>{{ p.set.upper() }} #{{ p.collector_number }}</span>{% endif %}
+            {% if p.tag %}<span>tag: {{ p.tag }}</span>{% endif %}
+            <span>{{ p.source }}</span>
+            <span>bleed: <strong id="bleed-text-{{ pid }}">{{ p.bleed }}</strong></span>
+            <span>added {{ p.added }}</span>
+          </div>
+          <div class="job-strip" id="job-{{ pid }}" hidden></div>
+        </div>
+
+        <div class="pc-actions">
+          {% if pid != card.default %}
+            <button class="btn pc-btn" data-action="default">Set default</button>
+          {% endif %}
+          <select class="bleed-sel pc-sel" data-action="bleed" title="Change bleed method (updates metadata; re-process to apply)">
+            {% for method in ['mirror','edge','black','white'] %}
+              <option value="{{ method }}" {% if p.bleed == method %}selected{% endif %}>{{ method }} bleed</option>
+            {% endfor %}
+          </select>
+          {% if p.source == 'scryfall' %}
+            <button class="btn pc-btn" data-action="reprocess" title="Re-download and re-upscale with current bleed setting">Re-process</button>
+          {% endif %}
+          <a class="btn pc-btn" href="{{ url_for('full', rel=slug+'/'+pid) }}" target="_blank"
+             {% if not exists[pid] %}style="opacity:.4;pointer-events:none"{% endif %}>Full size</a>
+          <button class="btn danger pc-btn" data-action="delete">Delete</button>
+        </div>
+
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- add printing panel (hidden until + Add printing clicked) -->
+    <div class="add-printing-zone" id="addPrintingZone" hidden></div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const CARD_SLUG = {{ slug|tojson }};
+  const CARD_NAME = {{ card.name|tojson }};
+</script>
+<script src="{{ url_for('static', filename='card.js') }}"></script>
+{% endblock %}
