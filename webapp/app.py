@@ -422,6 +422,40 @@ def api_reprocess_printing(slug: str, pid: str):
     return jsonify(job.to_dict())
 
 
+@app.route("/api/import-mpcfill-xml", methods=["POST"])
+def api_import_mpcfill_xml():
+    """Parse an MPCFill XML order and return a standard decklist string."""
+    import xml.etree.ElementTree as _ET
+
+    xml_text = request.get_data(as_text=True)
+    if not xml_text.strip():
+        return jsonify({"error": "no XML provided"}), 400
+
+    try:
+        from import_mpcfill import parse_mpcfill_xml, entries_to_decklist
+        skip = request.args.get("tokens", "skip") == "skip"
+        entries, tokens_skipped = parse_mpcfill_xml(xml_text, skip_tokens=skip)
+        return jsonify({
+            "decklist": entries_to_decklist(entries),
+            "unique": len(entries),
+            "total_qty": sum(e.qty for e in entries),
+            "tokens_skipped": tokens_skipped,
+            "entries": [
+                {
+                    "qty": e.qty,
+                    "name": e.name,
+                    "set_code": e.set_code,
+                    "collector_num": e.collector_num,
+                }
+                for e in entries
+            ],
+        })
+    except _ET.ParseError as exc:
+        return jsonify({"error": f"Invalid XML: {exc}"}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
 @app.route("/build")
 def build_view():
     return render_template("build.html")

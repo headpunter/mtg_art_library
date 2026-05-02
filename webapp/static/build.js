@@ -9,6 +9,9 @@ let selectedFormat = 'png';
 /* ── elements ────────────────────────────────────────────────────── */
 const deckInput      = document.getElementById('deckInput');
 const btnParse       = document.getElementById('btnParse');
+const btnImportXml   = document.getElementById('btnImportXml');
+const xmlFileInput   = document.getElementById('xmlFileInput');
+const importNote     = document.getElementById('importNote');
 const btnBuild       = document.getElementById('btnBuild');
 const buildEmpty     = document.getElementById('buildEmpty');
 const buildTableWrap = document.getElementById('buildTableWrap');
@@ -28,6 +31,9 @@ const formatSeg      = document.getElementById('formatSeg');
   });
   btnParse.addEventListener('click', () => parseDeck());
   btnBuild.addEventListener('click', buildDeck);
+
+  btnImportXml.addEventListener('click', () => xmlFileInput.click());
+  xmlFileInput.addEventListener('change', importMpcFillXml);
 
   formatSeg.addEventListener('click', e => {
     const btn = e.target.closest('.fmt-btn');
@@ -330,6 +336,46 @@ async function buildDeck() {
     statusChip.textContent = '✕ ' + e.message;
     btnBuild.disabled = false;
     btnBuild.textContent = 'Build →';
+  }
+}
+
+/* ── MPCFill XML import ──────────────────────────────────────────── */
+
+async function importMpcFillXml() {
+  const file = xmlFileInput.files[0];
+  if (!file) return;
+
+  btnImportXml.disabled = true;
+  btnImportXml.textContent = 'Parsing…';
+  importNote.hidden = true;
+
+  try {
+    const xml = await file.text();
+    const res  = await fetch('/api/import-mpcfill-xml', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/xml; charset=utf-8' },
+      body: xml,
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    deckInput.value = data.decklist;
+    localStorage.setItem('build_decklist', data.decklist);
+
+    importNote.hidden = false;
+    importNote.textContent =
+      `Imported ${data.unique} cards (${data.total_qty} total)` +
+      (data.tokens_skipped ? ` · ${data.tokens_skipped} token slots skipped` : '');
+
+    await parseDeck();
+  } catch (e) {
+    importNote.hidden = false;
+    importNote.textContent = '✕ ' + e.message;
+    importNote.style.color = 'var(--red)';
+  } finally {
+    btnImportXml.disabled = false;
+    btnImportXml.textContent = 'Import XML';
+    xmlFileInput.value = '';
   }
 }
 

@@ -544,6 +544,18 @@ body[data-page="build"] main {
 
 .btn-wide { width: 100%; }
 
+.parse-row {
+  display: flex;
+  gap: 8px;
+}
+.parse-row .btn { flex: 1; }
+
+.import-note {
+  font-size: 10px;
+  letter-spacing: .04em;
+  line-height: 1.5;
+}
+
 .format-hint {
   margin-top: auto;
   padding: 12px;

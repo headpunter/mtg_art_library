@@ -32,7 +32,12 @@
       </div>
     </div>
 
-    <button class="btn primary btn-wide" id="btnParse">Parse</button>
+    <div class="parse-row">
+      <button class="btn primary" id="btnParse">Parse</button>
+      <button class="btn" id="btnImportXml" title="Import an MPCFill XML order file">Import XML</button>
+      <input type="file" id="xmlFileInput" accept=".xml" style="display:none">
+    </div>
+    <div class="import-note mono dim" id="importNote" hidden></div>
 
     <div class="format-hint">
       <p class="hint-label">Supported formats</p>
