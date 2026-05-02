@@ -22,7 +22,8 @@
        class="nav-item {% if request.endpoint == 'library_view' %}active{% endif %}">
       Library
     </a>
-    <a href="#" class="nav-item disabled" title="Coming soon">
+    <a href="{{ url_for('build_view') }}"
+       class="nav-item {% if request.endpoint == 'build_view' %}active{% endif %}">
       Build Deck
     </a>
   </nav>

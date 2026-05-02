@@ -31,23 +31,31 @@ class DeckEntry:
     collector_num: str | None = None
 
 
+def _iter_lines(lines: Iterator[str]) -> Iterator[DeckEntry]:
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            continue
+        low = line.lower()
+        if any(low.startswith(p) for p in SKIP_PREFIXES):
+            continue
+        m = LINE_RE.match(line)
+        if not m:
+            print(f"  ! could not parse: {line!r}", file=sys.stderr)
+            continue
+        name = m.group("name").strip().split(" // ")[0].strip()
+        yield DeckEntry(
+            qty=int(m.group("qty") or 1),
+            name=name,
+            set_code=m.group("set"),
+            collector_num=m.group("num"),
+        )
+
+
 def parse_decklist(path: Path) -> Iterator[DeckEntry]:
     with open(path, encoding="utf-8") as f:
-        for raw in f:
-            line = raw.strip()
-            if not line:
-                continue
-            low = line.lower()
-            if any(low.startswith(p) for p in SKIP_PREFIXES):
-                continue
-            m = LINE_RE.match(line)
-            if not m:
-                print(f"  ! could not parse: {line!r}", file=sys.stderr)
-                continue
-            name = m.group("name").strip().split(" // ")[0].strip()
-            yield DeckEntry(
-                qty=int(m.group("qty") or 1),
-                name=name,
-                set_code=m.group("set"),
-                collector_num=m.group("num"),
-            )
+        yield from _iter_lines(f)
+
+
+def parse_decklist_text(text: str) -> Iterator[DeckEntry]:
+    yield from _iter_lines(iter(text.splitlines()))

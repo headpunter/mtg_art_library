@@ -340,6 +340,130 @@ def api_jobs():
     return jsonify({"jobs": [j.to_dict() for j in jobs.list_recent()]})
 
 
+# ---------- build view ----------
+
+@app.route("/build")
+def build_view():
+    return render_template("build.html")
+
+
+@app.route("/api/parse-decklist", methods=["POST"])
+def api_parse_decklist():
+    """Parse a decklist text and cross-reference against the library."""
+    text = (request.json or {}).get("text", "")
+    lib = get_lib()
+
+    from collections import OrderedDict
+    from decklist import parse_decklist_text
+
+    entries = list(parse_decklist_text(text))
+
+    # Deduplicate: group by (slug, pinned_printing_id)
+    groups: dict = OrderedDict()
+    for e in entries:
+        slug = normalize_name(e.name)
+        pinned_pid = None
+        if e.set_code and e.collector_num:
+            pinned_pid = normalize_printing_id(e.set_code, e.collector_num)
+        key = (slug, pinned_pid)
+        if key not in groups:
+            groups[key] = {
+                "qty": 0, "name": e.name, "slug": slug,
+                "set_code": e.set_code, "collector_num": e.collector_num,
+            }
+        groups[key]["qty"] += e.qty
+
+    rows = []
+    stats = {"total_qty": 0, "unique": 0, "ok": 0, "pick": 0, "missing": 0}
+
+    for (slug, pinned_pid), g in groups.items():
+        stats["total_qty"] += g["qty"]
+        stats["unique"] += 1
+        card = lib.cards.get(slug)
+
+        if card is None:
+            status = "missing"
+            stats["missing"] += 1
+            printings = []
+            selected = None
+        else:
+            printings = [
+                {**p.to_dict(), "id": pid, "exists": lib.file_path(slug, pid).exists()}
+                for pid, p in card.printings.items()
+            ]
+            if pinned_pid and pinned_pid in card.printings:
+                selected = pinned_pid
+                status = "ok"
+                stats["ok"] += 1
+            elif len(card.printings) <= 1:
+                selected = card.default
+                status = "ok"
+                stats["ok"] += 1
+            else:
+                selected = card.default
+                status = "pick"
+                stats["pick"] += 1
+
+        rows.append({
+            "qty": g["qty"],
+            "name": g["name"],
+            "slug": slug,
+            "status": status,
+            "printings": printings,
+            "selected": selected,
+        })
+
+    return jsonify({"rows": rows, "stats": stats})
+
+
+@app.route("/api/build", methods=["POST"])
+def api_build():
+    """Kick off a build job (currently only MPC PNG bundle)."""
+    body = request.json or {}
+    rows = body.get("rows", [])
+    fmt = body.get("format", "png")
+
+    if not rows:
+        return jsonify({"error": "no rows"}), 400
+    if fmt not in ("png", "xml", "pdf"):
+        return jsonify({"error": "invalid format"}), 400
+    if fmt != "png":
+        return jsonify({"error": f"Format '{fmt}' is not yet implemented."}), 400
+
+    from datetime import datetime as _dt
+
+    def run(job):
+        lib = get_lib()
+        ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+        out_dir = lib.root / "exports" / ts
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        from build_mpc import build_png_bundle
+        zip_path = build_png_bundle(lib, rows, out_dir, job)
+        return {
+            "zip_path": str(zip_path),
+            "download_url": f"/api/build-download/{job.id}",
+        }
+
+    job = jobs.submit(f"Build MPC PNG ({len(rows)} cards)", run)
+    return jsonify(job.to_dict())
+
+
+@app.route("/api/build-download/<jid>")
+def api_build_download(jid: str):
+    """Serve the zip produced by a completed build job."""
+    j = jobs.get(jid)
+    if not j or j.state != "done":
+        abort(404)
+    zip_path_str = (j.result or {}).get("zip_path")
+    if not zip_path_str:
+        abort(404)
+    zip_path = Path(zip_path_str)
+    if not zip_path.exists():
+        abort(404)
+    return send_file(zip_path, as_attachment=True, download_name=zip_path.name)
+
+
 # ---------- entry point ----------
 
 def main():

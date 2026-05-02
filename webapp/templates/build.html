@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Build Deck — MTG Art Library{% endblock %}
+{% block page_id %}build{% endblock %}
+
+{% block content %}
+<div class="build-layout">
+
+  <!-- ── left: paste pane ─────────────────────────────────────────── -->
+  <aside class="build-aside">
+    <p class="section-label">Decklist</p>
+
+    <textarea id="deckInput"
+              placeholder="1 Sol Ring&#10;1x Lightning Bolt&#10;Counterspell&#10;1 Sol Ring (cmm) 366"
+              spellcheck="false"></textarea>
+
+    <div class="build-stats">
+      <div class="stat-tile">
+        <span class="stat-num" id="statUnique">—</span>
+        <span class="stat-lbl">unique</span>
+      </div>
+      <div class="stat-tile stat-ok">
+        <span class="stat-num" id="statOk">—</span>
+        <span class="stat-lbl">in lib</span>
+      </div>
+      <div class="stat-tile stat-pick">
+        <span class="stat-num" id="statPick">—</span>
+        <span class="stat-lbl">pick</span>
+      </div>
+      <div class="stat-tile stat-missing">
+        <span class="stat-num" id="statMissing">—</span>
+        <span class="stat-lbl">missing</span>
+      </div>
+    </div>
+
+    <button class="btn primary btn-wide" id="btnParse">Parse</button>
+
+    <div class="format-hint">
+      <p class="hint-label">Supported formats</p>
+      <code>1 Sol Ring</code>
+      <code>1x Sol Ring</code>
+      <code>Sol Ring</code>
+      <code>1 Sol Ring (cmm) 366</code>
+      <code>// comments skipped</code>
+    </div>
+  </aside>
+
+  <!-- ── right: parsed table ──────────────────────────────────────── -->
+  <div class="build-main">
+
+    <div class="build-empty" id="buildEmpty">
+      <span class="build-empty-glyph">⌬</span>
+      <p>Paste a decklist and hit <em>Parse</em></p>
+    </div>
+
+    <div class="build-table-wrap" id="buildTableWrap" hidden>
+      <table class="deck-table">
+        <thead>
+          <tr>
+            <th class="col-qty">Qty</th>
+            <th class="col-card">Card</th>
+            <th class="col-printing">Printing</th>
+            <th class="col-action"></th>
+          </tr>
+        </thead>
+        <tbody id="deckBody"></tbody>
+      </table>
+    </div>
+
+    <!-- sticky build footer -->
+    <footer class="build-footer" id="buildFooter" hidden>
+      <div class="footer-summary" id="footerSummary"></div>
+      <div class="footer-right">
+        <div class="format-seg" id="formatSeg">
+          <button class="fmt-btn active" data-fmt="png" title="Folder of print-ready PNGs + zip">MPC PNG</button>
+          <button class="fmt-btn" data-fmt="xml" disabled title="Coming soon">Autofill XML</button>
+          <button class="fmt-btn" data-fmt="pdf" disabled title="Coming soon">9-up PDF</button>
+        </div>
+        <button class="btn primary" id="btnBuild" disabled>Build →</button>
+      </div>
+    </footer>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='build.js') }}"></script>
+{% endblock %}
