@@ -19,6 +19,7 @@ const deckBody       = document.getElementById('deckBody');
 const buildFooter    = document.getElementById('buildFooter');
 const footerSummary  = document.getElementById('footerSummary');
 const formatSeg      = document.getElementById('formatSeg');
+const pdfLayoutSel   = document.getElementById('pdfLayoutSel');
 
 /* ── init ────────────────────────────────────────────────────────── */
 {
@@ -41,6 +42,7 @@ const formatSeg      = document.getElementById('formatSeg');
     Array.from(formatSeg.querySelectorAll('.fmt-btn'))
       .forEach(b => b.classList.toggle('active', b === btn));
     selectedFormat = btn.dataset.fmt;
+    pdfLayoutSel.hidden = selectedFormat !== 'pdf';
   });
 
   if (saved && saved.trim()) parseDeck();
@@ -317,6 +319,9 @@ async function buildDeck() {
     name:        r.name,
   }));
 
+  const buildPayload = { rows, format: selectedFormat };
+  if (selectedFormat === 'pdf') buildPayload.layout = pdfLayoutSel.value;
+
   btnBuild.disabled = true;
   btnBuild.textContent = 'Building…';
 
@@ -329,7 +334,7 @@ async function buildDeck() {
   try {
     const job = await api('/api/build', {
       method: 'POST',
-      body: JSON.stringify({ rows, format: selectedFormat }),
+      body: JSON.stringify(buildPayload),
     });
     await pollBuildJob(job.id, statusChip);
   } catch (e) {

@@ -455,6 +455,16 @@ def api_import_mpcfill_xml():
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/api/build/pdf-layouts")
+def api_pdf_layouts():
+    """Return available PDF layout options."""
+    from build_pdf import LAYOUTS
+    return jsonify({
+        "layouts": [{"key": k, "name": v.name} for k, v in LAYOUTS.items()],
+        "default": "letter_9up",
+    })
+
+
 @app.route("/build")
 def build_view():
     return render_template("build.html")
@@ -540,8 +550,8 @@ def api_build():
         return jsonify({"error": "no rows"}), 400
     if fmt not in ("png", "xml", "pdf"):
         return jsonify({"error": "invalid format"}), 400
-    if fmt == "pdf":
-        return jsonify({"error": "9-up PDF is not yet implemented."}), 400
+    if fmt not in ("png", "xml", "pdf"):
+        return jsonify({"error": "invalid format"}), 400
 
     from datetime import datetime as _dt
 
@@ -554,6 +564,12 @@ def api_build():
             out_path = lib.root / "exports" / f"{ts}_autofill.xml"
             result_path = build_autofill_xml(lib, rows, out_path, job=job)
             label = "autofill.xml"
+        elif fmt == "pdf":
+            from build_pdf import build_pdf
+            layout_key = body.get("layout", "letter_9up")
+            out_path = lib.root / "exports" / f"{ts}_{layout_key}.pdf"
+            result_path = build_pdf(lib, rows, out_path, layout_key=layout_key, job=job)
+            label = result_path.name
         else:
             out_dir = lib.root / "exports" / ts
             out_dir.mkdir(parents=True, exist_ok=True)
@@ -561,14 +577,20 @@ def api_build():
             result_path = build_png_bundle(lib, rows, out_dir, job)
             label = result_path.name
 
+        mime = (
+            "application/xml" if fmt == "xml"
+            else "application/pdf" if fmt == "pdf"
+            else "application/zip"
+        )
         return {
             "file_path": str(result_path),
             "download_url": f"/api/build-download/{job.id}",
             "filename": label,
+            "mime": mime,
         }
 
-    label = "MPC PNG" if fmt == "png" else "AutoFill XML"
-    job = jobs.submit(f"Build {label} ({len(rows)} cards)", run)
+    _fmt_labels = {"png": "MPC PNG", "xml": "AutoFill XML", "pdf": "9-up PDF"}
+    job = jobs.submit(f"Build {_fmt_labels.get(fmt, fmt)} ({len(rows)} cards)", run)
     return jsonify(job.to_dict())
 
 
@@ -587,7 +609,11 @@ def api_build_download(jid: str):
     if not file_path.exists():
         abort(404)
     dl_name = result.get("filename") or file_path.name
-    mime = "application/xml" if file_path.suffix == ".xml" else "application/zip"
+    mime = result.get("mime") or (
+        "application/xml"  if file_path.suffix == ".xml"  else
+        "application/pdf"  if file_path.suffix == ".pdf"  else
+        "application/zip"
+    )
     return send_file(file_path, as_attachment=True, download_name=dl_name, mimetype=mime)
 
 
