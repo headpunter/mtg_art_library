@@ -433,8 +433,7 @@ def api_import_mpcfill_xml():
 
     try:
         from import_mpcfill import parse_mpcfill_xml, entries_to_decklist
-        skip = request.args.get("tokens", "skip") == "skip"
-        entries, tokens_skipped = parse_mpcfill_xml(xml_text, skip_tokens=skip)
+        entries, tokens_skipped = parse_mpcfill_xml(xml_text)
         return jsonify({
             "decklist": entries_to_decklist(entries),
             "unique": len(entries),

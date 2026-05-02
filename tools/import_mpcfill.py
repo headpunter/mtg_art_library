@@ -82,7 +82,7 @@ def _count_slots(slots_text: str) -> int:
 
 def parse_mpcfill_xml(
     xml_text: str,
-    skip_tokens: bool = True,
+    skip_tokens: bool = False,
 ) -> tuple[list[MpcFillEntry], int]:
     """
     Parse an MPCFill XML string.
