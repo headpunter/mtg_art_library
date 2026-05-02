@@ -540,25 +540,35 @@ def api_build():
         return jsonify({"error": "no rows"}), 400
     if fmt not in ("png", "xml", "pdf"):
         return jsonify({"error": "invalid format"}), 400
-    if fmt != "png":
-        return jsonify({"error": f"Format '{fmt}' is not yet implemented."}), 400
+    if fmt == "pdf":
+        return jsonify({"error": "9-up PDF is not yet implemented."}), 400
 
     from datetime import datetime as _dt
 
     def run(job):
         lib = get_lib()
         ts = _dt.now().strftime("%Y%m%d_%H%M%S")
-        out_dir = lib.root / "exports" / ts
-        out_dir.mkdir(parents=True, exist_ok=True)
 
-        from build_mpc import build_png_bundle
-        zip_path = build_png_bundle(lib, rows, out_dir, job)
+        if fmt == "xml":
+            from build_autofill_xml import build_autofill_xml
+            out_path = lib.root / "exports" / f"{ts}_autofill.xml"
+            result_path = build_autofill_xml(lib, rows, out_path, job=job)
+            label = "autofill.xml"
+        else:
+            out_dir = lib.root / "exports" / ts
+            out_dir.mkdir(parents=True, exist_ok=True)
+            from build_mpc import build_png_bundle
+            result_path = build_png_bundle(lib, rows, out_dir, job)
+            label = result_path.name
+
         return {
-            "zip_path": str(zip_path),
+            "file_path": str(result_path),
             "download_url": f"/api/build-download/{job.id}",
+            "filename": label,
         }
 
-    job = jobs.submit(f"Build MPC PNG ({len(rows)} cards)", run)
+    label = "MPC PNG" if fmt == "png" else "AutoFill XML"
+    job = jobs.submit(f"Build {label} ({len(rows)} cards)", run)
     return jsonify(job.to_dict())
 
 
@@ -568,13 +578,17 @@ def api_build_download(jid: str):
     j = jobs.get(jid)
     if not j or j.state != "done":
         abort(404)
-    zip_path_str = (j.result or {}).get("zip_path")
-    if not zip_path_str:
+    result = j.result or {}
+    # support both old key ("zip_path") and new key ("file_path")
+    file_path_str = result.get("file_path") or result.get("zip_path")
+    if not file_path_str:
         abort(404)
-    zip_path = Path(zip_path_str)
-    if not zip_path.exists():
+    file_path = Path(file_path_str)
+    if not file_path.exists():
         abort(404)
-    return send_file(zip_path, as_attachment=True, download_name=zip_path.name)
+    dl_name = result.get("filename") or file_path.name
+    mime = "application/xml" if file_path.suffix == ".xml" else "application/zip"
+    return send_file(file_path, as_attachment=True, download_name=dl_name, mimetype=mime)
 
 
 # ---------- entry point ----------
