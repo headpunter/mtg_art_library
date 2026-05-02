@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}MTG Art Library{% endblock %}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body data-page="{% block page_id %}{% endblock %}">
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">⌬</span>
+    <span class="brand-name">art library</span>
+    <span class="brand-sub">/ private collection</span>
+  </div>
+  <nav class="nav">
+    <a href="{{ url_for('library_view') }}"
+       class="nav-item {% if request.endpoint == 'library_view' %}active{% endif %}">
+      Library
+    </a>
+    <a href="#" class="nav-item disabled" title="Coming soon">
+      Build Deck
+    </a>
+  </nav>
+</header>
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<div class="job-tray" id="jobTray" hidden></div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

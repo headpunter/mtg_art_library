@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>MTG Art Library — Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Kalam:wght@400;700&family=Caveat:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="sketches.jsx"></script>
+<script type="text/babel" src="midfi.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "selectorVariant": "tiles"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const variant = tweaks.selectorVariant;
+
+  return (
+    <>
+      <DesignCanvas>
+        <DCSection id="ideation" title="01 · Sketchy ideation" subtitle="Quick exploration before committing — patterns considered + chosen direction marked.">
+          <DCArtboard id="add-modal" label="Add Card · A · modal" width={340} height={380}><SketchAddModal /></DCArtboard>
+          <DCArtboard id="add-drawer" label="Add Card · B · drawer ✓" width={340} height={380}><SketchAddDrawer /></DCArtboard>
+          <DCArtboard id="add-inline" label="Add Card · C · inline panel" width={340} height={380}><SketchAddInline /></DCArtboard>
+          <DCArtboard id="lib-layouts" label="Library · grid vs list" width={700} height={380}><SketchLibLayouts /></DCArtboard>
+          <DCArtboard id="build-layouts" label="Build · layouts considered" width={700} height={380}><SketchBuildLayouts /></DCArtboard>
+          <DCArtboard id="status-rows" label="Status rows · tinted ✓" width={340} height={380}><SketchStatusRows /></DCArtboard>
+          <DCArtboard id="jobs" label="Job progress · inline ✓" width={340} height={380}><SketchJobs /></DCArtboard>
+          <DCArtboard id="card-detail-sk" label="Card detail · own page" width={340} height={380}><SketchCardDetail /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="midfi" title="02 · Mid-fi mockups" subtitle="Chosen direction. Dark, Steam/itch-style, image-forward.">
+          <DCArtboard id="mid-lib-grid" label="Library · grid" width={1180} height={760}><MidLibraryGrid /></DCArtboard>
+          <DCArtboard id="mid-lib-list" label="Library · list" width={1180} height={760}><MidLibraryList /></DCArtboard>
+          <DCArtboard id="mid-add" label="Library · grid + Add drawer" width={1180} height={760}><MidLibraryGrid withDrawer /></DCArtboard>
+          <DCArtboard id="mid-build" label="Build · paste + parsed table" width={1180} height={760}><MidBuild selectorVariant={variant} /></DCArtboard>
+          <DCArtboard id="mid-detail" label="Card detail · /card/sol_ring" width={1180} height={760}><MidCardDetail /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="docs" title="03 · Flow & components" subtitle="Page flow, component breakdown, color/tone direction.">
+          <DCArtboard id="flow" label="Page flow" width={900} height={540}><PageFlow /></DCArtboard>
+          <DCArtboard id="tone" label="Color & tone" width={700} height={540}><ToneCard /></DCArtboard>
+          <DCArtboard id="components" label="Component breakdown" width={900} height={700}><ComponentsDoc /></DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Build · printing selector">
+          <TweakRadio
+            label="Variant"
+            value={variant}
+            onChange={v => setTweak('selectorVariant', v)}
+            options={[
+              { value: 'default', label: 'Pill' },
+              { value: 'tiles', label: 'Tiles' },
+              { value: 'stepper', label: 'Stepper' },
+              { value: 'thumb', label: 'Thumb' },
+            ]}
+          />
+          <div style={{ fontSize: 11, color: '#7a8092', lineHeight: 1.5, marginTop: 6 }}>
+            Cycles the printing selector in the Build table.<br/>
+            <b>Pill:</b> set-code chip + collector # + count<br/>
+            <b>Tiles:</b> small thumbs side-by-side, click to swap<br/>
+            <b>Stepper:</b> ‹ cmm 366 (1/3) ›<br/>
+            <b>Thumb:</b> single mini-thumb + meta + ▾
+          </div>
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

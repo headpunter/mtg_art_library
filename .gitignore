@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+pip-log.txt
+
+# Flask
+instance/
+.webassets-cache
+
+# Library data (art files are large; keep only the index)
+art/
+.thumbs/
+.upload_staging/
+exports/
+
+# library.json is the source of truth — include it
+# (uncomment below to also ignore it if you prefer not to track cards)
+# library.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Windows
+*.bat.bak

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Library — {{ cards|length }} cards{% endblock %}
+{% block page_id %}library{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-row">
+    <div class="hero-stat">
+      <div class="hero-num">{{ cards|length }}</div>
+      <div class="hero-lbl">cards</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-num">{{ total_printings }}</div>
+      <div class="hero-lbl">printings</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-num">{{ canonical_dpi }}</div>
+      <div class="hero-lbl">dpi</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-num small">{{ canonical_w }}×{{ canonical_h }}</div>
+      <div class="hero-lbl">canonical px</div>
+    </div>
+  </div>
+  <div class="hero-search">
+    <input id="filter" type="search" placeholder="Filter…" autocomplete="off">
+    <button class="btn primary" id="btnAdd">+ add card</button>
+  </div>
+</section>
+
+<section class="grid" id="grid">
+  {% if not cards %}
+    <div class="empty">
+      <h2>No cards yet</h2>
+      <p>Click <em>add card</em> to ingest your first art from Scryfall, or upload a custom image.</p>
+    </div>
+  {% endif %}
+  {% for c in cards %}
+    <article class="card" data-name="{{ c.name|lower }}" data-slug="{{ c.slug }}">
+      <div class="card-art">
+        {% if c.default_thumb %}
+          <img src="{{ url_for('thumb', rel=c.default_thumb) }}"
+               alt="{{ c.name }}" loading="lazy">
+        {% else %}
+          <div class="card-art-empty">no default</div>
+        {% endif %}
+      </div>
+      <div class="card-meta">
+        <h3 class="card-name">{{ c.name }}</h3>
+        <div class="card-info">
+          <span class="card-pid">{{ c.default or '—' }}</span>
+          <span class="card-count">{{ c.printings_count }} printing{{ 's' if c.printings_count != 1 else '' }}</span>
+        </div>
+      </div>
+    </article>
+  {% endfor %}
+</section>
+
+<!-- Card detail drawer -->
+<aside class="drawer" id="drawer" hidden>
+  <header class="drawer-head">
+    <h2 id="drawerName">—</h2>
+    <button class="drawer-close" aria-label="Close">×</button>
+  </header>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+<div class="drawer-scrim" id="drawerScrim" hidden></div>
+
+<!-- Add-card modal -->
+<div class="modal" id="addModal" hidden>
+  <div class="modal-card">
+    <header class="modal-head">
+      <h2>Add to Library</h2>
+      <button class="modal-close" aria-label="Close">×</button>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="scryfall">From Scryfall</button>
+      <button class="tab" data-tab="file">From File</button>
+    </div>
+
+    <!-- Scryfall tab -->
+    <div class="tab-panel" data-panel="scryfall">
+      <label class="field">
+        <span>Card name</span>
+        <input id="sfName" type="search" placeholder="Sol Ring" autocomplete="off">
+        <ul class="autocomplete" id="sfAutocomplete" hidden></ul>
+      </label>
+
+      <div class="printings" id="printings" hidden>
+        <div class="printings-head">
+          <span>Printings — top 5 by price</span>
+          <span class="printings-meta" id="printingsMeta"></span>
+        </div>
+        <div class="printings-list" id="printingsList"></div>
+      </div>
+
+      <div class="opts">
+        <label class="check">
+          <input type="checkbox" id="sfMakeDefault">
+          <span>Set as default printing</span>
+        </label>
+        <label class="field inline">
+          <span>Bleed</span>
+          <select id="sfBleed">
+            <option value="">default (mirror)</option>
+            <option value="mirror">mirror</option>
+            <option value="edge">edge</option>
+            <option value="black">black</option>
+            <option value="white">white</option>
+          </select>
+        </label>
+      </div>
+
+      <footer class="modal-foot">
+        <button class="btn primary" id="sfIngest" disabled>Ingest selected</button>
+        <span class="footer-note">Estimated ~15-30s per card.</span>
+      </footer>
+    </div>
+
+    <!-- File tab -->
+    <div class="tab-panel" data-panel="file" hidden>
+      <label class="field">
+        <span>Card name</span>
+        <input id="fileName" type="text" placeholder="Sol Ring" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Tag (e.g. <code>futurama</code>, <code>mpcfill_v1</code>)</span>
+        <input id="fileTag" type="text" placeholder="custom" value="custom" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Image file(s)</span>
+        <input id="fileFiles" type="file" accept="image/*" multiple>
+      </label>
+      <div class="opts">
+        <label class="check">
+          <input type="checkbox" id="fileMakeDefault">
+          <span>Set as default printing</span>
+        </label>
+        <label class="field inline">
+          <span>Bleed</span>
+          <select id="fileBleed">
+            <option value="">default (mirror)</option>
+            <option value="mirror">mirror</option>
+            <option value="edge">edge</option>
+            <option value="black">black</option>
+            <option value="white">white</option>
+          </select>
+        </label>
+      </div>
+      <footer class="modal-foot">
+        <button class="btn primary" id="fileIngest">Ingest file(s)</button>
+      </footer>
+    </div>
+  </div>
+  <div class="modal-scrim"></div>
+</div>
+{% endblock %}
