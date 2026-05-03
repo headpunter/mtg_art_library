@@ -31,6 +31,7 @@ class MpcFillEntry:
     set_code: str | None
     collector_num: str | None
     original_name: str           # raw filename (no extension)
+    drive_id: str | None = None  # Google Drive file ID from <id> element
 
 
 # ── filename parsing regexes ───────────────────────────────────────────
@@ -101,6 +102,7 @@ def parse_mpcfill_xml(
         query    = (card.findtext('query') or '').strip()
         filename = (card.findtext('name')  or '').strip()
         slots    = (card.findtext('slots') or '').strip()
+        drive_id = (card.findtext('id')    or '').strip() or None
 
         if skip_tokens and query.startswith('t:'):
             tokens_skipped += _count_slots(slots)
@@ -120,6 +122,7 @@ def parse_mpcfill_xml(
             set_code=set_code,
             collector_num=collector_num,
             original_name=_EXT.sub('', filename),
+            drive_id=drive_id,
         ))
 
     return entries, tokens_skipped

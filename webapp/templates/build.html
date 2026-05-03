@@ -34,10 +34,13 @@
 
     <div class="parse-row">
       <button class="btn primary" id="btnParse">Parse</button>
-      <button class="btn" id="btnImportXml" title="Import an MPCFill XML order file">Import XML</button>
+      <button class="btn" id="btnImportXml" title="Import MPCFill XML as decklist">Import XML</button>
+      <button class="btn" id="btnIngestXml" title="Download art for every card in an MPCFill XML">Ingest art from XML</button>
       <input type="file" id="xmlFileInput" accept=".xml" style="display:none">
+      <input type="file" id="xmlArtFileInput" accept=".xml" style="display:none">
     </div>
     <div class="import-note mono dim" id="importNote" hidden></div>
+    <div class="import-note mono dim" id="ingestNote" hidden></div>
 
     <button class="btn btn-fetch-missing" id="btnFetchMissing" hidden>
       Fetch missing from MPC AutoFill

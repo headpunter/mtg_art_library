@@ -738,6 +738,70 @@ def api_import_mpcfill_xml():
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/api/ingest/mpcfill-xml-art", methods=["POST"])
+def api_ingest_mpcfill_xml_art():
+    """Download and ingest card art for every entry in an MPCFill XML that has a Drive ID."""
+    import xml.etree.ElementTree as _ET
+
+    xml_text = request.get_data(as_text=True)
+    if not xml_text.strip():
+        return jsonify({"error": "no XML provided"}), 400
+
+    try:
+        from import_mpcfill import parse_mpcfill_xml
+        entries, _ = parse_mpcfill_xml(xml_text, skip_tokens=True)
+    except _ET.ParseError as exc:
+        return jsonify({"error": f"Invalid XML: {exc}"}), 400
+
+    # Only entries that have a Google Drive file ID
+    downloadable = [e for e in entries if e.drive_id]
+    skipped_no_id = len(entries) - len(downloadable)
+
+    if not downloadable:
+        return jsonify({"error": "No Google Drive file IDs found in XML"}), 400
+
+    def run(job):
+        from download_drive import download_drive_file
+        from add_card import ingest_file
+
+        lib = get_lib()
+        staging = lib.root / ".upload_staging"
+        staging.mkdir(exist_ok=True)
+
+        ok, failed, skipped = [], [], []
+        total = len(downloadable)
+
+        for i, e in enumerate(downloadable, 1):
+            label = f"{e.name} ({e.original_name})"
+            job.update(f"[{i}/{total}] {e.name}…")
+            tmp = staging / f"xmlart_{e.drive_id}.jpg"
+            try:
+                download_drive_file(e.drive_id, tmp)
+                slug, pid = ingest_file(
+                    lib, tmp, e.name,
+                    tag=f"mpcfill_xml",
+                    make_default=True,
+                )
+                lib.save()
+                ok.append({"name": e.name, "slug": slug, "printing_id": pid})
+            except Exception as exc:
+                failed.append({"name": e.name, "error": str(exc)})
+            finally:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+        return {
+            "ok": ok,
+            "failed": failed,
+            "skipped_no_id": skipped_no_id,
+        }
+
+    job = jobs.submit(f"Ingest art from XML ({len(downloadable)} cards)", run)
+    return jsonify({**job.to_dict(), "total": len(downloadable), "skipped_no_id": skipped_no_id})
+
+
 @app.route("/api/build/pdf-layouts")
 def api_pdf_layouts():
     """Return available PDF layout options."""

@@ -12,6 +12,9 @@ const btnParse       = document.getElementById('btnParse');
 const btnImportXml   = document.getElementById('btnImportXml');
 const xmlFileInput   = document.getElementById('xmlFileInput');
 const importNote     = document.getElementById('importNote');
+const btnIngestXml   = document.getElementById('btnIngestXml');
+const xmlArtFileInput = document.getElementById('xmlArtFileInput');
+const ingestNote     = document.getElementById('ingestNote');
 const btnFetchMissing = document.getElementById('btnFetchMissing');
 const fetchNote      = document.getElementById('fetchNote');
 const btnBuild       = document.getElementById('btnBuild');
@@ -44,6 +47,8 @@ let _findRow = null;   // the deck row currently open in the find pane
 
   btnImportXml.addEventListener('click', () => xmlFileInput.click());
   xmlFileInput.addEventListener('change', importMpcFillXml);
+  btnIngestXml.addEventListener('click', () => xmlArtFileInput.click());
+  xmlArtFileInput.addEventListener('change', ingestArtFromXml);
   btnFetchMissing.addEventListener('click', fetchMissingFromAutofill);
 
   findPaneClose.addEventListener('click', closeFindPane);
@@ -520,6 +525,79 @@ async function importMpcFillXml() {
     btnImportXml.disabled = false;
     btnImportXml.textContent = 'Import XML';
     xmlFileInput.value = '';
+  }
+}
+
+/* ── Ingest art from MPCFill XML ─────────────────────────────────── */
+
+async function ingestArtFromXml() {
+  const file = xmlArtFileInput.files[0];
+  if (!file) return;
+
+  btnIngestXml.disabled = true;
+  btnIngestXml.textContent = 'Reading…';
+  ingestNote.hidden = false;
+  ingestNote.style.color = '';
+  ingestNote.textContent = 'Starting…';
+
+  try {
+    const xml = await file.text();
+    const res  = await fetch('/api/ingest/mpcfill-xml-art', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/xml; charset=utf-8' },
+      body: xml,
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const total = data.total;
+    const skipped = data.skipped_no_id;
+    ingestNote.textContent =
+      `Queued ${total} cards for download` +
+      (skipped ? ` (${skipped} had no Drive ID, skipped)` : '') +
+      ` — polling…`;
+
+    await pollIngestXmlJob(data.id, total);
+  } catch (e) {
+    ingestNote.textContent = '✕ ' + e.message;
+    ingestNote.style.color = 'var(--red)';
+    btnIngestXml.disabled = false;
+    btnIngestXml.textContent = 'Ingest art from XML';
+  } finally {
+    xmlArtFileInput.value = '';
+  }
+}
+
+async function pollIngestXmlJob(jid, total) {
+  while (true) {
+    await new Promise(r => setTimeout(r, 1500));
+    const j = await api(`/api/job/${jid}`).catch(() => null);
+    if (!j) return;
+
+    ingestNote.textContent = j.progress || j.state;
+
+    if (j.state === 'done') {
+      const r = j.result || {};
+      const ok      = (r.ok      || []).length;
+      const failed  = (r.failed  || []).length;
+      const skipped = r.skipped_no_id || 0;
+      let msg = `✓ ${ok} of ${total} downloaded`;
+      if (failed)  msg += ` · ${failed} failed`;
+      if (skipped) msg += ` · ${skipped} had no Drive ID`;
+      ingestNote.textContent = msg;
+      btnIngestXml.disabled = false;
+      btnIngestXml.textContent = 'Ingest art from XML';
+      if (ok > 0 && parsedRows.length) setTimeout(() => parseDeck(), 800);
+      return;
+    }
+
+    if (j.state === 'failed') {
+      ingestNote.textContent = '✕ ' + (j.error || 'Ingest failed');
+      ingestNote.style.color = 'var(--red)';
+      btnIngestXml.disabled = false;
+      btnIngestXml.textContent = 'Ingest art from XML';
+      return;
+    }
   }
 }
 
