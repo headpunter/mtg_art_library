@@ -51,38 +51,45 @@ import scryfall
 import upscaler
 
 
-def ingest_scryfall(lib: Library, name: str, set_code: str | None = None,
-                    num: str | None = None, bleed_method: str | None = None,
-                    make_default: bool = False) -> tuple[str, str]:
-    """Pull from Scryfall, upscale, bleed, save. Returns (slug, printing_id)."""
-    print(f"  -> fetch: {name}" + (f" ({set_code} {num})" if set_code else ""))
-    card_json = scryfall.fetch_card(name, set_code, num)
+def _process_card_json(
+    lib: Library,
+    card_json: dict,
+    bleed_method: str | None = None,
+    make_default: bool = False,
+) -> tuple[str, str]:
+    """Download, upscale, bleed and save a card already fetched from Scryfall."""
     real_name = card_json["name"]
-    real_set = card_json["set"]
-    real_num = card_json["collector_number"]
-    pid = normalize_printing_id(real_set, real_num)
+    real_set  = card_json["set"]
+    real_num  = card_json["collector_number"]
+    pid  = normalize_printing_id(real_set, real_num)
+    slug = normalize_name(real_name)
+
+    # Skip if this exact printing is already in the library
+    if slug in lib.cards and pid in lib.cards[slug].printings:
+        print(f"  -- {real_name} ({real_set} {real_num}) already in library")
+        return slug, pid
+
+    try:
+        img_url = scryfall.png_url(card_json)
+    except RuntimeError as exc:
+        raise RuntimeError(f"No image for {real_name}: {exc}") from exc
 
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
-        # Step 1: download raw scryfall png
         raw = td / "raw.png"
-        img = scryfall.download_png(scryfall.png_url(card_json))
+        img = scryfall.download_png(img_url)
         img.save(raw, "PNG")
         print(f"    raw: {img.size}")
 
-        # Step 2: upscale to ~4x
         up = td / "up.png"
         upscaler.upscale_file(raw, up)
         upscaled = Image.open(up)
         print(f"    upscaled: {upscaled.size}")
 
-        # Step 3: bleed at canonical DPI
         method = bleed_method or lib.default_bleed
         finished = apply_bleed(upscaled, lib.canonical_dpi, method)
         print(f"    finished: {finished.size}")
 
-        # Step 4: save into library
-        slug = normalize_name(real_name)
         out_path = lib.file_path(slug, pid)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         finished.save(out_path, "PNG", dpi=(lib.canonical_dpi, lib.canonical_dpi))
@@ -95,10 +102,37 @@ def ingest_scryfall(lib: Library, name: str, set_code: str | None = None,
         bleed=method,
     )
     card_obj = lib.add_printing(real_name, pid, p, make_default=make_default)
+
     tokens = scryfall.related_token_names(card_json)
     if tokens:
         card_obj.related_tokens = tokens
+
     print(f"    OK {slug}/{pid}.png")
+    return slug, pid
+
+
+def ingest_scryfall(lib: Library, name: str, set_code: str | None = None,
+                    num: str | None = None, bleed_method: str | None = None,
+                    make_default: bool = False) -> tuple[str, str]:
+    """Pull from Scryfall, upscale, bleed, save. Auto-fetches associated tokens.
+
+    Returns (slug, printing_id) for the main card.
+    """
+    print(f"  -> fetch: {name}" + (f" ({set_code} {num})" if set_code else ""))
+    card_json = scryfall.fetch_card(name, set_code, num)
+
+    slug, pid = _process_card_json(lib, card_json, bleed_method, make_default)
+
+    # Auto-fetch the exact token(s) printed alongside this card in the same set
+    for tok in scryfall.related_token_parts(card_json):
+        tok_slug = normalize_name(tok["name"])
+        print(f"  -> token: {tok['name']}")
+        try:
+            tok_json = scryfall.fetch_by_uri(tok["uri"])
+            _process_card_json(lib, tok_json, bleed_method, make_default=True)
+        except Exception as exc:
+            print(f"    token {tok['name']} skipped: {exc}", file=sys.stderr)
+
     return slug, pid
 
 

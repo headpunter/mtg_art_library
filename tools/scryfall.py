@@ -51,6 +51,20 @@ def related_token_names(card_json: dict) -> list[str]:
     ]
 
 
+def related_token_parts(card_json: dict) -> list[dict]:
+    """Token entries from all_parts, each with name and direct Scryfall uri."""
+    return [
+        {"name": p["name"], "uri": p["uri"]}
+        for p in (card_json.get("all_parts") or [])
+        if p.get("component") == "token" and p.get("uri")
+    ]
+
+
+def fetch_by_uri(uri: str) -> dict:
+    """Fetch any Scryfall object by its API URI."""
+    return _get(uri)
+
+
 def download_png(url: str) -> Image.Image:
     r = requests.get(url, headers=HEADERS, timeout=60)
     r.raise_for_status()

@@ -298,7 +298,7 @@ function toggleFindPanel(row, tr) {
   findPaneTabs.querySelectorAll('.find-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
   findPane.hidden = false;
   findPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  loadFindResults(row, 'autofill');
+  loadFindResults(row, 'scryfall');
 }
 
 async function loadFindResults(row, tab) {
