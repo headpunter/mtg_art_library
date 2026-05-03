@@ -265,6 +265,40 @@ def api_scryfall_printings():
     return jsonify({"top": top, "total": full_count})
 
 
+@app.route("/api/scryfall/token-printings")
+def api_scryfall_token_printings():
+    """Return all Scryfall printings of a named token card."""
+    name = request.args.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "name required"}), 400
+    try:
+        import requests
+        r = requests.get("https://api.scryfall.com/cards/search",
+                         params={"q": f'!"{name}" t:token', "unique": "prints",
+                                 "order": "released"},
+                         headers={"User-Agent": "MTG-Art-Library/1.0"},
+                         timeout=15)
+        r.raise_for_status()
+        data = r.json().get("data", [])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    out = []
+    for c in data:
+        out.append({
+            "id": c.get("id"),
+            "name": c.get("name"),
+            "set": c.get("set"),
+            "set_name": c.get("set_name"),
+            "collector_number": c.get("collector_number"),
+            "released_at": c.get("released_at"),
+            "image_normal": (c.get("image_uris") or {}).get("normal")
+                or (c.get("card_faces", [{}])[0].get("image_uris", {}) or {}).get("normal"),
+        })
+
+    return jsonify({"printings": out, "total": len(out)})
+
+
 @app.route("/api/ingest/scryfall", methods=["POST"])
 def api_ingest_scryfall():
     """Kick off Scryfall ingestion as a background job."""
@@ -931,7 +965,28 @@ def api_parse_decklist():
             "selected": selected,
         })
 
-    return jsonify({"rows": rows, "stats": stats})
+    # Collect tokens needed: aggregate from all non-missing cards in library
+    tokens_map: dict[str, list[str]] = {}   # token_name -> [producer names]
+    for row in rows:
+        if row["status"] == "missing":
+            continue
+        card = lib.cards.get(row["slug"])
+        if not card:
+            continue
+        for tok in card.related_tokens:
+            tokens_map.setdefault(tok, []).append(row["name"])
+
+    tokens_needed = [
+        {
+            "name": tok,
+            "slug": normalize_name(tok),
+            "produced_by": producers,
+            "in_library": normalize_name(tok) in lib.cards,
+        }
+        for tok, producers in sorted(tokens_map.items())
+    ]
+
+    return jsonify({"rows": rows, "stats": stats, "tokens_needed": tokens_needed})
 
 
 @app.route("/api/build", methods=["POST"])

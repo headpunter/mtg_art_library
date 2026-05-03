@@ -164,13 +164,17 @@ class Card:
     name: str                              # display name "Sol Ring"
     default: str | None = None             # default printing_id
     printings: dict[str, Printing] = field(default_factory=dict)
+    related_tokens: list[str] = field(default_factory=list)  # token names this card produces
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d = {
             "name": self.name,
             "default": self.default,
             "printings": {k: p.to_dict() for k, p in self.printings.items()},
         }
+        if self.related_tokens:
+            d["related_tokens"] = list(self.related_tokens)
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Card":
@@ -178,6 +182,7 @@ class Card:
             name=d["name"],
             default=d.get("default"),
             printings={k: Printing.from_dict(v) for k, v in d.get("printings", {}).items()},
+            related_tokens=d.get("related_tokens") or [],
         )
 
 

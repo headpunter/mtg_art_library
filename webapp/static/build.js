@@ -27,6 +27,9 @@ const buildFooter    = document.getElementById('buildFooter');
 const footerSummary  = document.getElementById('footerSummary');
 const formatSeg      = document.getElementById('formatSeg');
 const pdfLayoutSel   = document.getElementById('pdfLayoutSel');
+const tokensPanel    = document.getElementById('tokensPanel');
+const tokensList     = document.getElementById('tokensList');
+const tokensHint     = document.getElementById('tokensHint');
 const findPane       = document.getElementById('findPane');
 const findPaneTitle  = document.getElementById('findPaneTitle');
 const findPaneTabs   = document.getElementById('findPaneTabs');
@@ -59,7 +62,11 @@ let _findRow = null;   // the deck row currently open in the find pane
     const tab = e.target.closest('.find-tab');
     if (!tab || !_findRow) return;
     findPaneTabs.querySelectorAll('.find-tab').forEach(t => t.classList.toggle('active', t === tab));
-    loadFindResults(_findRow, tab.dataset.tab);
+    if (_findRow._isToken) {
+      loadTokenResults(_findRow.name);
+    } else {
+      loadFindResults(_findRow, tab.dataset.tab);
+    }
   });
 
   formatSeg.addEventListener('click', e => {
@@ -97,6 +104,7 @@ async function parseDeck() {
     parsedRows = data.rows;
     updateStats(data.stats);
     renderTable(data.rows);
+    renderTokens(data.tokens_needed || []);
   } catch (e) {
     console.error('parse error', e);
   } finally {
@@ -110,6 +118,7 @@ function clearTable() {
   buildEmpty.hidden = false;
   buildTableWrap.hidden = true;
   buildFooter.hidden = true;
+  tokensPanel.hidden = true;
   parsedRows = [];
   updateStats({ unique: 0, ok: 0, pick: 0, missing: 0, total_qty: 0 });
 }
@@ -202,6 +211,75 @@ function printingLabel(p) {
     return `${p.set.toUpperCase()} #${p.collector_number} · ${p.bleed}`;
   }
   return `${p.tag || p.id} · ${p.bleed}`;
+}
+
+/* ── tokens panel ───────────────────────────────────────────────── */
+
+function renderTokens(tokens) {
+  if (!tokens.length) { tokensPanel.hidden = true; return; }
+
+  tokensPanel.hidden = false;
+  const missing = tokens.filter(t => !t.in_library).length;
+  tokensHint.textContent = missing
+    ? `${missing} not in library — click Find to add`
+    : 'all in library';
+
+  tokensList.innerHTML = tokens.map(t => {
+    const producers = t.produced_by.slice(0, 3).map(escapeHtml).join(', ')
+      + (t.produced_by.length > 3 ? ` +${t.produced_by.length - 3}` : '');
+    const statusCls = t.in_library ? 'tok-ok' : 'tok-missing';
+    const statusDot = t.in_library ? '✓' : '?';
+    return (
+      `<div class="token-row" data-slug="${escapeHtml(t.slug)}" data-name="${escapeHtml(t.name)}">` +
+        `<span class="tok-dot ${statusCls}">${statusDot}</span>` +
+        `<span class="tok-name">${escapeHtml(t.name)}</span>` +
+        `<span class="tok-producers dim">${producers}</span>` +
+        (!t.in_library
+          ? `<button class="btn btn-find tok-find" data-name="${escapeHtml(t.name)}">Find</button>`
+          : '') +
+      `</div>`
+    );
+  }).join('');
+
+  tokensList.querySelectorAll('.tok-find').forEach(btn => {
+    btn.addEventListener('click', () => openTokenFinder(btn.dataset.name));
+  });
+}
+
+function openTokenFinder(tokenName) {
+  _findRow = { slug: `__token__${tokenName}`, name: tokenName, _isToken: true };
+  findPaneTitle.innerHTML = `Token: <em>${escapeHtml(tokenName)}</em>`;
+  findPaneTabs.querySelectorAll('.find-tab').forEach((t, i) => t.classList.toggle('active', i === 1));
+  findPane.hidden = false;
+  findPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  loadTokenResults(tokenName);
+}
+
+async function loadTokenResults(tokenName) {
+  findPaneResults.innerHTML = `<span class="hint-dim">Loading token printings…</span>`;
+  try {
+    const r = await api(`/api/scryfall/token-printings?name=${encodeURIComponent(tokenName)}`);
+    if (r.error || !r.printings?.length) {
+      findPaneResults.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No token printings found')}</span>`;
+      return;
+    }
+    findPaneResults.innerHTML = r.printings.map(p =>
+      `<div class="find-pick" data-set="${escapeHtml(p.set)}" data-num="${escapeHtml(p.collector_number)}">` +
+        `<img src="${escapeHtml(p.image_normal || '')}" alt="" loading="lazy">` +
+        `<div class="find-pick-meta">` +
+          `<span class="fp-set">${escapeHtml(p.set.toUpperCase())} · ${escapeHtml(p.set_name)}</span>` +
+          `<span class="fp-num">#${escapeHtml(p.collector_number)} · ${escapeHtml(p.released_at || '')}</span>` +
+        `</div>` +
+      `</div>`
+    ).join('');
+    findPaneResults.querySelectorAll('.find-pick').forEach(el => {
+      el.addEventListener('click', () => {
+        ingestForRow({ name: tokenName, slug: `__token__${tokenName}` }, el.dataset.set, el.dataset.num);
+      });
+    });
+  } catch (e) {
+    findPaneResults.innerHTML = `<span class="hint-dim">Failed to load token printings</span>`;
+  }
 }
 
 /* ── find pane (top panel for art selection) ─────────────────────── */
@@ -350,14 +428,14 @@ async function pollRowJob(jid, strip, findBtn) {
     await new Promise(r => setTimeout(r, 1200));
     const j = await api(`/api/job/${jid}`).catch(() => null);
     if (!j) return;
-    strip.textContent = j.error || j.progress || j.state;
+    if (strip) strip.textContent = j.error || j.progress || j.state;
     if (j.state === 'done') {
-      strip.textContent = '✓ Added — re-parsing…';
+      if (strip) strip.textContent = '✓ Added — re-parsing…';
       setTimeout(() => parseDeck(), 600);
       return;
     }
     if (j.state === 'failed') {
-      strip.textContent = '✕ ' + (j.error || 'Failed');
+      if (strip) strip.textContent = '✕ ' + (j.error || 'Failed');
       if (findBtn) findBtn.disabled = false;
       return;
     }

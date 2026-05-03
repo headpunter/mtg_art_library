@@ -94,7 +94,10 @@ def ingest_scryfall(lib: Library, name: str, set_code: str | None = None,
         collector_number=real_num,
         bleed=method,
     )
-    lib.add_printing(real_name, pid, p, make_default=make_default)
+    card_obj = lib.add_printing(real_name, pid, p, make_default=make_default)
+    tokens = scryfall.related_token_names(card_json)
+    if tokens:
+        card_obj.related_tokens = tokens
     print(f"    OK {slug}/{pid}.png")
     return slug, pid
 

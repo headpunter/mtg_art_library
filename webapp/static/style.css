@@ -868,6 +868,53 @@ body[data-page="build"] main {
 }
 .job-strip[hidden] { display: none; }
 
+/* tokens panel */
+.tokens-panel {
+  flex-shrink: 0;
+  border-top: 1px solid var(--rule-2);
+  padding: 10px 16px;
+  background: var(--bg-2);
+}
+.tokens-panel[hidden] { display: none; }
+.tokens-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.tokens-label {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--gold);
+}
+.tokens-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.token-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-3);
+  border: 1px solid var(--rule-2);
+  border-radius: 6px;
+  padding: 4px 10px 4px 8px;
+  font-size: .82rem;
+}
+.tok-dot {
+  font-size: .75rem;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.tok-ok   { color: var(--green); }
+.tok-missing { color: var(--gold); }
+.tok-name { font-weight: 600; }
+.tok-producers { font-size: .75rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tok-find { padding: 2px 8px; font-size: .75rem; margin-left: 4px; }
+
 /* build footer */
 .build-footer {
   flex-shrink: 0;

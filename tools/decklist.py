@@ -22,6 +22,18 @@ LINE_RE = re.compile(
 
 SKIP_PREFIXES = ("#", "//", "sideboard", "maybeboard", "commander:", "deck:")
 
+# Section headers emitted by common deck exporters (Moxfield, Archidekt, TappedOut…)
+# These appear as bare words or "Word (N)" and are never card names.
+_SECTION_HEADERS = frozenset({
+    "about", "artifact", "artifacts", "battle", "battles",
+    "companion", "commander", "creature", "creatures",
+    "enchantment", "enchantments", "instant", "instants",
+    "land", "lands", "mainboard", "maybeboard",
+    "noncreature", "nonland", "other", "other spells",
+    "permanent", "permanents", "planeswalker", "planeswalkers",
+    "sideboard", "sorceries", "sorcery", "spell", "spells", "tokens",
+})
+
 
 @dataclass
 class DeckEntry:
@@ -44,6 +56,8 @@ def _iter_lines(lines: Iterator[str]) -> Iterator[DeckEntry]:
             print(f"  ! could not parse: {line!r}", file=sys.stderr)
             continue
         name = m.group("name").strip().split(" // ")[0].strip()
+        if name.lower() in _SECTION_HEADERS:
+            continue
         yield DeckEntry(
             qty=int(m.group("qty") or 1),
             name=name,

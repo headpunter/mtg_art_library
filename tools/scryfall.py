@@ -42,6 +42,15 @@ def png_url(card_json: dict) -> str:
     raise RuntimeError(f"No image_uris on {card_json.get('name')}")
 
 
+def related_token_names(card_json: dict) -> list[str]:
+    """Names of tokens this card can produce, from all_parts."""
+    return [
+        p["name"]
+        for p in (card_json.get("all_parts") or [])
+        if p.get("component") == "token"
+    ]
+
+
 def download_png(url: str) -> Image.Image:
     r = requests.get(url, headers=HEADERS, timeout=60)
     r.raise_for_status()
