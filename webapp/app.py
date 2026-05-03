@@ -450,6 +450,93 @@ def api_reprocess_printing(slug: str, pid: str):
     return jsonify(job.to_dict())
 
 
+@app.route("/api/ingest/mpcautofill-bulk", methods=["POST"])
+def api_ingest_mpcautofill_bulk():
+    """
+    Batch-ingest card art from MPC AutoFill for a list of card names.
+
+    Body: { "names": [...], "make_default": true, "preferred_sources": [...] }
+
+    preferred_sources is an ordered list of MPC AutoFill source keys
+    (e.g. ["Chilli_Axe", "NoobToob"]) that are sorted to the front when
+    multiple art options exist for a card.  Pass [] or omit for default ranking.
+    """
+    body = request.json or {}
+    names: list[str] = body.get("names", [])
+    make_default: bool = bool(body.get("make_default", True))
+    preferred: list[str] = body.get("preferred_sources", [])
+
+    if not names:
+        return jsonify({"error": "no names provided"}), 400
+    if len(names) > 500:
+        return jsonify({"error": "too many names (max 500)"}), 400
+
+    def run(job):
+        from mpcautofill import search_cards, best_drive_card
+        from download_drive import download_drive_file
+        from add_card import ingest_file
+
+        lib = get_lib()
+        staging = lib.root / ".upload_staging"
+        staging.mkdir(exist_ok=True)
+
+        total = len(names)
+        ok, missing, failed = [], [], []
+
+        job.update(f"Querying MPC AutoFill for {total} card{'s' if total != 1 else ''}…")
+        try:
+            results = search_cards(names, preferred_sources=preferred or None)
+        except Exception as exc:
+            raise RuntimeError(f"MPC AutoFill API error: {exc}") from exc
+
+        for i, name in enumerate(names, 1):
+            cards = results.get(name, [])
+            card = best_drive_card(cards)
+
+            if not card:
+                missing.append(name)
+                job.update(f"[{i}/{total}] {name} — no Drive art found")
+                continue
+
+            file_id = card["identifier"]
+            ext = (card.get("extension") or "jpg").lstrip(".")
+            tmp = staging / f"mpcautofill_{file_id}.{ext}"
+
+            try:
+                job.update(f"[{i}/{total}] Downloading {name}…")
+                download_drive_file(file_id, tmp)
+
+                job.update(f"[{i}/{total}] Processing {name}…")
+                lib2 = get_lib()
+                tag = f"mpcautofill_{card.get('source', 'unknown')}"
+                slug, pid = ingest_file(
+                    lib2, tmp, name,
+                    tag=tag,
+                    make_default=make_default,
+                )
+                lib2.save()
+                ok.append({"name": name, "slug": slug, "pid": pid})
+            except Exception as exc:
+                failed.append({"name": name, "error": str(exc)})
+                job.update(f"[{i}/{total}] {name} — failed: {exc}")
+            finally:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+        summary = f"Done — {len(ok)} added"
+        if missing:
+            summary += f", {len(missing)} not found"
+        if failed:
+            summary += f", {len(failed)} failed"
+        job.update(summary)
+        return {"ok": ok, "missing": missing, "failed": failed}
+
+    job = jobs.submit(f"MPC AutoFill bulk ingest ({len(names)} cards)", run)
+    return jsonify(job.to_dict())
+
+
 @app.route("/api/import-mpcfill-xml", methods=["POST"])
 def api_import_mpcfill_xml():
     """Parse an MPCFill XML order and return a standard decklist string."""

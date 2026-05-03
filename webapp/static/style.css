@@ -556,6 +556,22 @@ body[data-page="build"] main {
   line-height: 1.5;
 }
 
+.btn-fetch-missing {
+  width: 100%;
+  background: rgba(181,138,58,.1);
+  border: 1px solid rgba(181,138,58,.4);
+  border-radius: 4px;
+  color: var(--gold-hi);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  text-align: left;
+}
+.btn-fetch-missing:hover    { background: rgba(181,138,58,.2); border-color: var(--gold); }
+.btn-fetch-missing:disabled { opacity: .5; cursor: default; }
+
 .format-hint {
   margin-top: auto;
   padding: 12px;

@@ -12,6 +12,8 @@ const btnParse       = document.getElementById('btnParse');
 const btnImportXml   = document.getElementById('btnImportXml');
 const xmlFileInput   = document.getElementById('xmlFileInput');
 const importNote     = document.getElementById('importNote');
+const btnFetchMissing = document.getElementById('btnFetchMissing');
+const fetchNote      = document.getElementById('fetchNote');
 const btnBuild       = document.getElementById('btnBuild');
 const buildEmpty     = document.getElementById('buildEmpty');
 const buildTableWrap = document.getElementById('buildTableWrap');
@@ -35,6 +37,7 @@ const pdfLayoutSel   = document.getElementById('pdfLayoutSel');
 
   btnImportXml.addEventListener('click', () => xmlFileInput.click());
   xmlFileInput.addEventListener('change', importMpcFillXml);
+  btnFetchMissing.addEventListener('click', fetchMissingFromAutofill);
 
   formatSeg.addEventListener('click', e => {
     const btn = e.target.closest('.fmt-btn');
@@ -306,6 +309,10 @@ function updateBuildButton() {
   const empty   = parsedRows.length === 0;
   btnBuild.disabled = missing > 0 || empty;
   btnBuild.textContent = missing > 0 ? `Fix ${missing} first` : 'Build →';
+
+  btnFetchMissing.hidden = missing === 0;
+  btnFetchMissing.textContent =
+    `Fetch ${missing} missing from MPC AutoFill`;
 }
 
 /* ── build ───────────────────────────────────────────────────────── */
@@ -341,6 +348,65 @@ async function buildDeck() {
     statusChip.textContent = '✕ ' + e.message;
     btnBuild.disabled = false;
     btnBuild.textContent = 'Build →';
+  }
+}
+
+/* ── MPC AutoFill bulk ingest ────────────────────────────────────── */
+
+async function fetchMissingFromAutofill() {
+  const missingRows = parsedRows.filter(r => r.status === 'missing');
+  if (!missingRows.length) return;
+
+  btnFetchMissing.disabled = true;
+  fetchNote.hidden = false;
+  fetchNote.style.color = '';
+  fetchNote.textContent = `Querying MPC AutoFill for ${missingRows.length} cards…`;
+
+  const names = missingRows.map(r => r.name);
+
+  try {
+    const job = await api('/api/ingest/mpcautofill-bulk', {
+      method: 'POST',
+      body: JSON.stringify({ names, make_default: true }),
+    });
+    await pollFetchJob(job.id);
+  } catch (e) {
+    fetchNote.textContent = '✕ ' + e.message;
+    fetchNote.style.color = 'var(--red)';
+    btnFetchMissing.disabled = false;
+  }
+}
+
+async function pollFetchJob(jid) {
+  while (true) {
+    await new Promise(r => setTimeout(r, 1500));
+    const j = await api(`/api/job/${jid}`).catch(() => null);
+    if (!j) return;
+
+    fetchNote.textContent = j.progress || j.state;
+
+    if (j.state === 'done') {
+      const r = j.result || {};
+      const ok      = (r.ok      || []).length;
+      const missing = (r.missing || []).length;
+      const failed  = (r.failed  || []).length;
+
+      let msg = `✓ ${ok} added`;
+      if (missing) msg += ` · ${missing} not found on MPC AutoFill`;
+      if (failed)  msg += ` · ${failed} failed`;
+      fetchNote.textContent = msg;
+
+      btnFetchMissing.disabled = false;
+      if (ok > 0) setTimeout(() => parseDeck(), 800);
+      return;
+    }
+
+    if (j.state === 'failed') {
+      fetchNote.textContent = '✕ ' + (j.error || 'Ingest failed');
+      fetchNote.style.color = 'var(--red)';
+      btnFetchMissing.disabled = false;
+      return;
+    }
   }
 }
 
