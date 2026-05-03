@@ -1071,6 +1071,29 @@ body[data-page="card"] main {
   color: var(--ink-dim);
 }
 
+.card-tokens-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: .78rem;
+}
+.card-tokens-list .meta-key {
+  flex-basis: 100%;
+  margin-bottom: 2px;
+}
+.tok-chip {
+  background: var(--bg-3);
+  border: 1px solid var(--rule-2);
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: var(--gold);
+  text-decoration: none;
+  font-size: .78rem;
+}
+.tok-chip:hover { border-color: var(--gold); }
+
 .card-aside-footer {
   margin-top: auto;
   display: flex;

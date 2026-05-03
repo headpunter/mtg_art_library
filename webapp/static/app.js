@@ -130,6 +130,42 @@ $$(".card").forEach(c => {
   });
 });
 
+/* ── refresh all metadata ────────────────────────────────────────── */
+const btnRefreshAllMeta = $("#btnRefreshAllMeta");
+const refreshAllNote    = $("#refreshAllNote");
+
+btnRefreshAllMeta?.addEventListener("click", async () => {
+  btnRefreshAllMeta.disabled = true;
+  refreshAllNote.hidden = false;
+  refreshAllNote.style.color = "";
+  refreshAllNote.textContent = "Starting…";
+  try {
+    const job = await api("/api/library/refresh-metadata", { method: "POST", body: "{}" });
+    while (true) {
+      await new Promise(r => setTimeout(r, 1500));
+      const j = await api(`/api/job/${job.id}`).catch(() => null);
+      if (!j) break;
+      refreshAllNote.textContent = j.progress || j.state;
+      if (j.state === "done") {
+        const r = j.result || {};
+        refreshAllNote.textContent = `✓ ${r.updated} updated, ${r.failed} failed`;
+        btnRefreshAllMeta.disabled = false;
+        break;
+      }
+      if (j.state === "failed") {
+        refreshAllNote.textContent = "✕ " + (j.error || "Failed");
+        refreshAllNote.style.color = "var(--red)";
+        btnRefreshAllMeta.disabled = false;
+        break;
+      }
+    }
+  } catch (e) {
+    refreshAllNote.textContent = "✕ " + e.message;
+    refreshAllNote.style.color = "var(--red)";
+    btnRefreshAllMeta.disabled = false;
+  }
+});
+
 /* ── add-card modal ──────────────────────────────────────────────── */
 const modal = $("#addModal");
 const btnAdd = $("#btnAdd");

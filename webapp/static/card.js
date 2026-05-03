@@ -132,6 +132,31 @@ async function doDelete(pid, pc) {
   }
 }
 
+/* ── refresh metadata ────────────────────────────────────────── */
+
+const btnRefreshMeta  = document.getElementById('btnRefreshMeta');
+const refreshMetaNote = document.getElementById('refreshMetaNote');
+
+if (btnRefreshMeta) {
+  btnRefreshMeta.addEventListener('click', async () => {
+    btnRefreshMeta.disabled = true;
+    refreshMetaNote.hidden = false;
+    refreshMetaNote.style.color = '';
+    refreshMetaNote.textContent = 'Fetching…';
+    try {
+      const job = await api(`/api/card/${enc(CARD_SLUG)}/refresh-metadata`, { method: 'POST', body: '{}' });
+      await pollJob(job.id, refreshMetaNote,
+        () => { refreshMetaNote.textContent = '✓ Done — refreshing…'; setTimeout(() => location.reload(), 800); },
+        () => { btnRefreshMeta.disabled = false; }
+      );
+    } catch (e) {
+      refreshMetaNote.textContent = '✕ ' + e.message;
+      refreshMetaNote.style.color = 'var(--red)';
+      btnRefreshMeta.disabled = false;
+    }
+  });
+}
+
 /* ── delete whole card ───────────────────────────────────────── */
 
 btnDeleteCard.addEventListener('click', async () => {

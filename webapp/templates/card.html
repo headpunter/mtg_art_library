@@ -33,8 +33,19 @@
       <span class="meta-val mono">{{ canonical_w }}×{{ canonical_h }}</span>
     </div>
 
+    {% if card.related_tokens %}
+    <div class="card-tokens-list">
+      <span class="meta-key">Tokens</span>
+      {% for t in card.related_tokens %}
+        <a class="tok-chip" href="{{ url_for('card_detail', slug=normalize_name(t)) }}">{{ t }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="card-aside-footer">
       <button class="btn primary btn-wide" id="btnAddPrinting">+ Add printing</button>
+      <button class="btn btn-wide" id="btnRefreshMeta" title="Re-fetch Scryfall metadata (tokens, etc.) without re-downloading art">Refresh metadata</button>
+      <span class="import-note mono dim" id="refreshMetaNote" hidden></span>
       <button class="btn danger btn-wide" id="btnDeleteCard">Delete card</button>
     </div>
   </aside>

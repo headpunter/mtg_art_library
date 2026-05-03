@@ -576,6 +576,7 @@ def card_detail(slug: str):
         canonical_dpi=lib.canonical_dpi,
         canonical_w=lib.canonical_size[0],
         canonical_h=lib.canonical_size[1],
+        normalize_name=normalize_name,
     )
 
 
@@ -621,6 +622,89 @@ def api_update_styles(slug: str, pid: str):
     card.printings[pid].styles = styles
     lib.save()
     return jsonify({"ok": True, "styles": styles})
+
+
+@app.route("/api/card/<slug>/refresh-metadata", methods=["POST"])
+def api_refresh_card_metadata(slug: str):
+    """
+    Re-fetch Scryfall metadata for a card and update related_tokens (and any
+    other metadata fields) without re-downloading or re-processing the image.
+    Works on the first Scryfall-sourced printing found on the card.
+    """
+    lib = get_lib()
+    card = lib.cards.get(slug)
+    if not card:
+        abort(404)
+
+    # Find a Scryfall printing to use as the source of truth
+    scryfall_printing = next(
+        (p for p in card.printings.values() if p.source == "scryfall" and p.set and p.collector_number),
+        None,
+    )
+    if not scryfall_printing:
+        return jsonify({"error": "No Scryfall-sourced printing found on this card"}), 400
+
+    def run(job):
+        import scryfall as sf
+        lib2 = get_lib()
+        c = lib2.cards[slug]
+        job.update("Fetching metadata from Scryfall…")
+        card_json = sf.fetch_card(
+            c.name,
+            set_code=scryfall_printing.set,
+            num=scryfall_printing.collector_number,
+        )
+        tokens = sf.related_token_names(card_json)
+        c.related_tokens = tokens
+        lib2.save()
+        return {"related_tokens": tokens}
+
+    job = jobs.submit(f"Refresh metadata: {card.name}", run)
+    return jsonify(job.to_dict())
+
+
+@app.route("/api/library/refresh-metadata", methods=["POST"])
+def api_refresh_all_metadata():
+    """Bulk-refresh Scryfall metadata for all cards that have a Scryfall printing."""
+    lib = get_lib()
+    targets = [
+        (slug, card)
+        for slug, card in lib.cards.items()
+        if any(p.source == "scryfall" and p.set and p.collector_number
+               for p in card.printings.values())
+    ]
+
+    def run(job):
+        import scryfall as sf
+        lib2 = get_lib()
+        total = len(targets)
+        updated, failed = 0, 0
+
+        for i, (slug, _) in enumerate(targets, 1):
+            card = lib2.cards.get(slug)
+            if not card:
+                continue
+            p = next(
+                (pr for pr in card.printings.values()
+                 if pr.source == "scryfall" and pr.set and pr.collector_number),
+                None,
+            )
+            if not p:
+                continue
+            job.update(f"[{i}/{total}] {card.name}…")
+            try:
+                card_json = sf.fetch_card(card.name, set_code=p.set, num=p.collector_number)
+                card.related_tokens = sf.related_token_names(card_json)
+                updated += 1
+            except Exception as exc:
+                failed += 1
+                job.update(f"[{i}/{total}] {card.name} — failed: {exc}")
+
+        lib2.save()
+        return {"updated": updated, "failed": failed, "total": total}
+
+    job = jobs.submit(f"Refresh metadata for {len(targets)} cards", run)
+    return jsonify(job.to_dict())
 
 
 @app.route("/api/card/<slug>/printing/<pid>/reprocess", methods=["POST"])
