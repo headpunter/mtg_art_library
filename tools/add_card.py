@@ -55,7 +55,7 @@ def ingest_scryfall(lib: Library, name: str, set_code: str | None = None,
                     num: str | None = None, bleed_method: str | None = None,
                     make_default: bool = False) -> tuple[str, str]:
     """Pull from Scryfall, upscale, bleed, save. Returns (slug, printing_id)."""
-    print(f"  → fetch: {name}" + (f" ({set_code} {num})" if set_code else ""))
+    print(f"  -> fetch: {name}" + (f" ({set_code} {num})" if set_code else ""))
     card_json = scryfall.fetch_card(name, set_code, num)
     real_name = card_json["name"]
     real_set = card_json["set"]
@@ -95,7 +95,7 @@ def ingest_scryfall(lib: Library, name: str, set_code: str | None = None,
         bleed=method,
     )
     lib.add_printing(real_name, pid, p, make_default=make_default)
-    print(f"    ✓ {slug}/{pid}.png")
+    print(f"    OK {slug}/{pid}.png")
     return slug, pid
 
 
@@ -104,7 +104,7 @@ def ingest_file(lib: Library, source_file: Path, card_name: str,
                 already_has_bleed: bool | None = None,
                 make_default: bool = False) -> tuple[str, str]:
     """Ingest a local image file. Skips upscaling if image is already large."""
-    print(f"  → file: {source_file.name} as {card_name!r}")
+    print(f"  -> file: {source_file.name} as {card_name!r}")
     img = Image.open(source_file).convert("RGBA")
     print(f"    input: {img.size}")
     pid = normalize_printing_id(None, None, tag=tag)
@@ -149,7 +149,7 @@ def ingest_file(lib: Library, source_file: Path, card_name: str,
         bleed=bleed_method or lib.default_bleed,
     )
     lib.add_printing(card_name, pid, p, make_default=make_default)
-    print(f"    ✓ {slug}/{pid}.png")
+    print(f"    OK {slug}/{pid}.png")
     return slug, pid
 
 
@@ -188,7 +188,7 @@ def main():
     if args.scryfall:
         slug = normalize_name(args.scryfall)
         if args.skip_existing and slug in lib.cards:
-            print(f"  · {args.scryfall} already in library, skipping")
+            print(f"  -- {args.scryfall} already in library, skipping")
             return
         ingest_scryfall(lib, args.scryfall, args.set, args.num,
                         bleed_method=args.bleed, make_default=args.make_default)
@@ -210,17 +210,17 @@ def main():
                 if entry.set_code and entry.collector_num:
                     pid = normalize_printing_id(entry.set_code, entry.collector_num)
                     if pid in lib.cards[slug].printings:
-                        print(f"  · {entry.name} ({entry.set_code} {entry.collector_num}) already in library")
+                        print(f"  -- {entry.name} ({entry.set_code} {entry.collector_num}) already in library")
                         continue
                 else:
-                    print(f"  · {entry.name} already in library")
+                    print(f"  -- {entry.name} already in library")
                     continue
             try:
                 ingest_scryfall(lib, entry.name, entry.set_code,
                                 entry.collector_num, bleed_method=args.bleed)
                 lib.save()  # save after each card so a crash doesn't lose progress
             except Exception as e:
-                print(f"    ✗ failed: {e}", file=sys.stderr)
+                print(f"    FAIL: {e}", file=sys.stderr)
                 failures.append((entry.name, str(e)))
 
         if failures:
