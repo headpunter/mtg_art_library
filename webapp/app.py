@@ -1075,16 +1075,26 @@ def api_parse_decklist():
         })
 
     # Collect tokens needed: aggregate from all non-missing cards in library
-    # but exclude any token the user already listed in the decklist itself.
+    # but exclude any token the user already listed in the decklist itself,
+    # and skip cards that are themselves tokens (token set codes start with "t").
     decklist_slugs = {row["slug"] for row in rows}
+
+    import re as _re
+    _TOKEN_SET = _re.compile(r'^t[a-z]', _re.IGNORECASE)
+
+    def _is_token_card(card) -> bool:
+        return any(
+            p.set and _TOKEN_SET.match(p.set)
+            for p in card.printings.values()
+        )
 
     tokens_map: dict[str, list[str]] = {}   # token_name -> [producer names]
     for row in rows:
         if row["status"] == "missing":
             continue
         card = lib.cards.get(row["slug"])
-        if not card:
-            continue
+        if not card or _is_token_card(card):
+            continue  # don't generate more tokens from token cards
         for tok in card.related_tokens:
             tok_slug = normalize_name(tok)
             if tok_slug in decklist_slugs:
