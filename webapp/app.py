@@ -352,6 +352,63 @@ def api_jobs():
     return jsonify({"jobs": [j.to_dict() for j in jobs.list_recent()]})
 
 
+# ---------- settings ----------
+
+_sources_cache: list | None = None
+_sources_cache_ts: float = 0.0
+_SOURCES_TTL = 3600.0  # re-fetch once per hour
+
+
+@app.route("/settings")
+def settings_view():
+    return render_template("settings.html")
+
+
+@app.route("/api/settings", methods=["GET"])
+def api_get_settings():
+    lib = get_lib()
+    return jsonify({"preferred_sources": lib.preferred_sources})
+
+
+@app.route("/api/settings", methods=["POST"])
+def api_post_settings():
+    lib = get_lib()
+    body = request.json or {}
+    if "preferred_sources" in body:
+        ps = body["preferred_sources"]
+        if not isinstance(ps, list):
+            return jsonify({"error": "preferred_sources must be a list"}), 400
+        lib.preferred_sources = [str(s).strip() for s in ps if str(s).strip()]
+    lib.save()
+    return jsonify({"ok": True, "preferred_sources": lib.preferred_sources})
+
+
+@app.route("/api/mpcautofill/sources")
+def api_mpcautofill_sources():
+    """Return available MPC AutoFill sources (cached 1 h)."""
+    import time
+    global _sources_cache, _sources_cache_ts
+    if _sources_cache is None or time.time() - _sources_cache_ts > _SOURCES_TTL:
+        try:
+            from mpcautofill import get_sources
+            raw = get_sources()
+            _sources_cache = sorted(
+                [
+                    {
+                        "key":         v.get("key", k),
+                        "name":        v.get("name", k),
+                        "description": v.get("description", ""),
+                    }
+                    for k, v in raw.items()
+                ],
+                key=lambda x: x["name"].lower(),
+            )
+            _sources_cache_ts = time.time()
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 502
+    return jsonify({"sources": _sources_cache})
+
+
 # ---------- build view ----------
 
 @app.route("/card/<slug>")
@@ -484,8 +541,9 @@ def api_ingest_mpcautofill_bulk():
         ok, missing, failed = [], [], []
 
         job.update(f"Querying MPC AutoFill for {total} card{'s' if total != 1 else ''}…")
+        effective_preferred = preferred or lib.preferred_sources or None
         try:
-            results = search_cards(names, preferred_sources=preferred or None)
+            results = search_cards(names, preferred_sources=effective_preferred)
         except Exception as exc:
             raise RuntimeError(f"MPC AutoFill API error: {exc}") from exc
 
