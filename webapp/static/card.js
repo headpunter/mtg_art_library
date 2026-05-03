@@ -12,6 +12,14 @@ const btnDeleteCard  = document.getElementById('btnDeleteCard');
 /* ── action delegation on printing cards ─────────────────────── */
 
 printingsList.addEventListener('click', async e => {
+  // style remove (×) button
+  const rmBtn = e.target.closest('.style-rm');
+  if (rmBtn) {
+    const row = rmBtn.closest('.pc-styles');
+    await doRemoveStyle(row.dataset.pid, rmBtn.dataset.style, row);
+    return;
+  }
+
   const btn = e.target.closest('[data-action]');
   if (!btn || btn.tagName === 'SELECT') return;
   const pc  = btn.closest('.printing-card');
@@ -19,6 +27,7 @@ printingsList.addEventListener('click', async e => {
   if (btn.dataset.action === 'default')   await doSetDefault(pid, pc);
   if (btn.dataset.action === 'reprocess') await doReprocess(pid, pc);
   if (btn.dataset.action === 'delete')    await doDelete(pid, pc);
+  if (btn.dataset.action === 'add-style') doShowStyleInput(btn.dataset.pid, btn);
 });
 
 printingsList.addEventListener('change', async e => {
@@ -321,6 +330,99 @@ async function pollJob(jid, statusEl, onDone, onFail) {
     if (j.state === 'done')   { onDone(j);  return; }
     if (j.state === 'failed') { statusEl.textContent = '✕ ' + (j.error || 'Failed'); onFail(j); return; }
   }
+}
+
+/* ── style tag management ────────────────────────────────────── */
+
+function _stylesFromRow(row) {
+  return (row.dataset.styles || '').split(',').filter(Boolean);
+}
+
+function _renderStyleRow(row, styles) {
+  row.dataset.styles = styles.join(',');
+  const pid = row.dataset.pid;
+
+  const existingInput = row.querySelector('.style-input-wrap');
+  row.innerHTML = '';
+
+  styles.forEach(s => {
+    const chip = document.createElement('span');
+    chip.className = 'style-chip-sm';
+    chip.innerHTML =
+      `${escapeHtml(s)}<button class="style-rm" data-style="${escapeHtml(s)}" aria-label="Remove ${escapeHtml(s)}">×</button>`;
+    row.appendChild(chip);
+  });
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'style-add-btn';
+  addBtn.dataset.action = 'add-style';
+  addBtn.dataset.pid = pid;
+  addBtn.textContent = '+ tag';
+  row.appendChild(addBtn);
+
+  if (existingInput) row.appendChild(existingInput);
+}
+
+async function doRemoveStyle(pid, style, row) {
+  const styles = _stylesFromRow(row).filter(s => s !== style);
+  await api(`/api/card/${enc(CARD_SLUG)}/printing/${enc(pid)}/styles`, {
+    method: 'POST',
+    body: JSON.stringify({ styles }),
+  });
+  _renderStyleRow(row, styles);
+}
+
+function doShowStyleInput(pid, addBtn) {
+  const row = document.getElementById(`pc-styles-${pid}`);
+  if (row.querySelector('.style-input-wrap')) return;
+
+  addBtn.style.display = 'none';
+
+  const wrap = document.createElement('span');
+  wrap.className = 'style-input-wrap';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'style-input';
+  input.placeholder = 'e.g. borderless';
+  input.maxLength = 40;
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'style-confirm-btn';
+  confirmBtn.textContent = '✓';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'style-cancel-btn';
+  cancelBtn.textContent = '×';
+
+  wrap.append(input, confirmBtn, cancelBtn);
+  row.appendChild(wrap);
+  input.focus();
+
+  async function commit() {
+    const val = input.value.trim().toLowerCase();
+    if (!val) { cancel(); return; }
+    const existing = _stylesFromRow(row);
+    if (existing.includes(val)) { cancel(); return; }
+    const styles = [...existing, val];
+    await api(`/api/card/${enc(CARD_SLUG)}/printing/${enc(pid)}/styles`, {
+      method: 'POST',
+      body: JSON.stringify({ styles }),
+    });
+    _renderStyleRow(row, styles);
+  }
+
+  function cancel() {
+    wrap.remove();
+    addBtn.style.display = '';
+  }
+
+  confirmBtn.addEventListener('click', commit);
+  cancelBtn.addEventListener('click', cancel);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') cancel();
+  });
 }
 
 /* ── tiny URL encoder helper ─────────────────────────────────── */

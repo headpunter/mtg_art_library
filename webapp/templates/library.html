@@ -3,60 +3,105 @@
 {% block page_id %}library{% endblock %}
 
 {% block content %}
-<section class="hero">
-  <div class="hero-row">
-    <div class="hero-stat">
-      <div class="hero-num">{{ cards|length }}</div>
-      <div class="hero-lbl">cards</div>
-    </div>
-    <div class="hero-stat">
-      <div class="hero-num">{{ total_printings }}</div>
-      <div class="hero-lbl">printings</div>
-    </div>
-    <div class="hero-stat">
-      <div class="hero-num">{{ canonical_dpi }}</div>
-      <div class="hero-lbl">dpi</div>
-    </div>
-    <div class="hero-stat">
-      <div class="hero-num small">{{ canonical_w }}×{{ canonical_h }}</div>
-      <div class="hero-lbl">canonical px</div>
-    </div>
-  </div>
-  <div class="hero-search">
-    <input id="filter" type="search" placeholder="Filter…" autocomplete="off">
-    <button class="btn primary" id="btnAdd">+ add card</button>
-  </div>
-</section>
+<div class="library-layout">
 
-<section class="grid" id="grid">
-  {% if not cards %}
-    <div class="empty">
-      <h2>No cards yet</h2>
-      <p>Click <em>add card</em> to ingest your first art from Scryfall, or upload a custom image.</p>
+  <!-- ── sidebar ─────────────────────────────────────────────────── -->
+  <aside class="library-sidebar">
+
+    <button class="btn primary btn-wide" id="btnAdd">+ Add card</button>
+
+    <div class="sidebar-search">
+      <input id="filter" type="search" placeholder="Search cards…" autocomplete="off">
     </div>
-  {% endif %}
-  {% for c in cards %}
-    <article class="card" data-name="{{ c.name|lower }}" data-slug="{{ c.slug }}">
-      <div class="card-art">
-        {% if c.default_thumb %}
-          <img src="{{ url_for('thumb', rel=c.default_thumb) }}"
-               alt="{{ c.name }}" loading="lazy">
-        {% else %}
-          <div class="card-art-empty">no default</div>
-        {% endif %}
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-head">
+        <span class="section-label">Art Styles</span>
+        <button class="sidebar-clear" id="btnClearFilters" hidden>clear</button>
       </div>
-      <div class="card-meta">
-        <h3 class="card-name">{{ c.name }}</h3>
-        <div class="card-info">
-          <span class="card-pid">{{ c.default or '—' }}</span>
-          <span class="card-count">{{ c.printings_count }} printing{{ 's' if c.printings_count != 1 else '' }}</span>
+
+      {% if all_styles %}
+        <div class="style-chips" id="styleChips">
+          {% for style, count in all_styles %}
+            <button class="style-chip" data-style="{{ style }}">
+              {{ style }}<span class="chip-count">{{ count }}</span>
+            </button>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="sidebar-empty">No style tags yet.<br>
+          Open a card → printing → <em>+ tag</em> to add one.</p>
+      {% endif %}
+    </div>
+
+    <div class="sidebar-results" id="filterCount" hidden></div>
+
+  </aside>
+
+  <!-- ── content ─────────────────────────────────────────────────── -->
+  <div class="library-content">
+
+    <section class="hero">
+      <div class="hero-row">
+        <div class="hero-stat">
+          <div class="hero-num">{{ cards|length }}</div>
+          <div class="hero-lbl">cards</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-num">{{ total_printings }}</div>
+          <div class="hero-lbl">printings</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-num">{{ canonical_dpi }}</div>
+          <div class="hero-lbl">dpi</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-num small">{{ canonical_w }}×{{ canonical_h }}</div>
+          <div class="hero-lbl">canonical px</div>
         </div>
       </div>
-    </article>
-  {% endfor %}
-</section>
+    </section>
 
-<!-- Card detail drawer -->
+    <section class="grid" id="grid">
+      {% if not cards %}
+        <div class="empty">
+          <h2>No cards yet</h2>
+          <p>Click <em>Add card</em> to ingest your first art from Scryfall, or upload a custom image.</p>
+        </div>
+      {% endif %}
+      {% for c in cards %}
+        <article class="card"
+                 data-name="{{ c.name|lower }}"
+                 data-slug="{{ c.slug }}"
+                 data-styles="{{ c.styles|join(',') }}">
+          <div class="card-art">
+            {% if c.default_thumb %}
+              <img src="{{ url_for('thumb', rel=c.default_thumb) }}"
+                   alt="{{ c.name }}" loading="lazy">
+            {% else %}
+              <div class="card-art-empty">no default</div>
+            {% endif %}
+          </div>
+          <div class="card-meta">
+            <h3 class="card-name">{{ c.name }}</h3>
+            <div class="card-info">
+              <span class="card-pid">{{ c.default or '—' }}</span>
+              <span class="card-count">{{ c.printings_count }} printing{{ 's' if c.printings_count != 1 else '' }}</span>
+            </div>
+            {% if c.styles %}
+              <div class="card-style-badges">
+                {% for s in c.styles %}<span class="card-style-badge">{{ s }}</span>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+
+  </div><!-- /.library-content -->
+</div><!-- /.library-layout -->
+
+<!-- Card detail drawer (kept for legacy JS; navigation goes to /card/<slug>) -->
 <aside class="drawer" id="drawer" hidden>
   <header class="drawer-head">
     <h2 id="drawerName">—</h2>

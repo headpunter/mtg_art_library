@@ -50,12 +50,14 @@ def card_summary(slug: str, card) -> dict:
         p = get_lib().file_path(slug, default)
         if p.exists():
             default_path = f"{slug}/{default}"
+    all_styles = sorted({s for p in card.printings.values() for s in p.styles})
     return {
         "slug": slug,
         "name": card.name,
         "default": default,
         "default_thumb": default_path,
         "printings_count": len(card.printings),
+        "styles": all_styles,
     }
 
 
@@ -68,11 +70,20 @@ def home():
 
 @app.route("/library")
 def library_view():
+    from collections import Counter
     lib = get_lib()
     cards = sorted(
         [card_summary(slug, c) for slug, c in lib.cards.items()],
         key=lambda x: x["name"].lower(),
     )
+    # Count distinct cards per style for sidebar display
+    style_card_counts: dict[str, int] = Counter(
+        s
+        for c in lib.cards.values()
+        for p in c.printings.values()
+        for s in p.styles
+    )
+    all_styles = sorted(style_card_counts.items())   # [(style, count), ...]
     return render_template(
         "library.html",
         cards=cards,
@@ -80,6 +91,7 @@ def library_view():
         canonical_dpi=lib.canonical_dpi,
         canonical_w=lib.canonical_size[0],
         canonical_h=lib.canonical_size[1],
+        all_styles=all_styles,
     )
 
 
@@ -392,6 +404,22 @@ def api_update_bleed(slug: str, pid: str):
     card.printings[pid].bleed = new_bleed
     lib.save()
     return jsonify({"ok": True, "bleed": new_bleed})
+
+
+@app.route("/api/card/<slug>/printing/<pid>/styles", methods=["POST"])
+def api_update_styles(slug: str, pid: str):
+    lib = get_lib()
+    card = lib.cards.get(slug)
+    if not card or pid not in card.printings:
+        abort(404)
+    raw = (request.json or {}).get("styles", [])
+    # Normalise: lowercase, strip, deduplicate, drop empties
+    styles = list(dict.fromkeys(
+        s.strip().lower() for s in raw if isinstance(s, str) and s.strip()
+    ))
+    card.printings[pid].styles = styles
+    lib.save()
+    return jsonify({"ok": True, "styles": styles})
 
 
 @app.route("/api/card/<slug>/printing/<pid>/reprocess", methods=["POST"])

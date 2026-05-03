@@ -138,6 +138,7 @@ class Printing:
     collector_number: str | None = None
     tag: str | None = None
     added: str = ""           # ISO date
+    styles: list[str] = field(default_factory=list)  # user-defined style labels
 
     def to_dict(self) -> dict[str, Any]:
         d = {"source": self.source, "bleed": self.bleed, "added": self.added}
@@ -145,13 +146,17 @@ class Printing:
             v = getattr(self, k)
             if v is not None:
                 d[k] = v
+        if self.styles:
+            d["styles"] = list(self.styles)
         return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Printing":
-        return cls(**{k: d.get(k) for k in
-                      ("source", "bleed", "scryfall_id", "set",
-                       "collector_number", "tag", "added")})
+        kwargs = {k: d.get(k) for k in
+                  ("source", "bleed", "scryfall_id", "set",
+                   "collector_number", "tag", "added")}
+        kwargs["styles"] = d.get("styles") or []
+        return cls(**kwargs)
 
 
 @dataclass

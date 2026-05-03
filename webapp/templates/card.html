@@ -73,6 +73,13 @@
             <span>bleed: <strong id="bleed-text-{{ pid }}">{{ p.bleed }}</strong></span>
             <span>added {{ p.added }}</span>
           </div>
+          <div class="pc-styles" id="pc-styles-{{ pid }}"
+               data-pid="{{ pid }}" data-styles="{{ p.styles|join(',') }}">
+            {% for s in p.styles %}
+              <span class="style-chip-sm">{{ s }}<button class="style-rm" data-style="{{ s }}" aria-label="Remove {{ s }}">×</button></span>
+            {% endfor %}
+            <button class="style-add-btn" data-action="add-style" data-pid="{{ pid }}">+ tag</button>
+          </div>
           <div class="job-strip" id="job-{{ pid }}" hidden></div>
         </div>
 

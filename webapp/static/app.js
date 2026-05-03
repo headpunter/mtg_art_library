@@ -12,13 +12,51 @@ async function api(path, opts = {}) {
 }
 
 /* ── filter ──────────────────────────────────────────────────────── */
-const filterInput = $("#filter");
-filterInput?.addEventListener("input", () => {
-  const q = filterInput.value.toLowerCase().trim();
-  $$(".card").forEach(c => {
-    const name = c.dataset.name || "";
-    c.classList.toggle("hidden", q && !name.includes(q));
+const filterInput    = $("#filter");
+const filterCount    = $("#filterCount");
+const btnClearFilters = $("#btnClearFilters");
+const activeStyles   = new Set();
+
+function applyFilters() {
+  const q = (filterInput?.value || "").toLowerCase().trim();
+  const cards = $$(".card");
+  let visible = 0;
+
+  cards.forEach(c => {
+    const nameMatch  = !q || (c.dataset.name || "").includes(q);
+    const cardStyles = (c.dataset.styles || "").split(",").filter(Boolean);
+    const styleMatch = activeStyles.size === 0 ||
+                       [...activeStyles].some(s => cardStyles.includes(s));
+    const show = nameMatch && styleMatch;
+    c.classList.toggle("hidden", !show);
+    if (show) visible++;
   });
+
+  const total = cards.length;
+  const filtered = q || activeStyles.size > 0;
+  if (filterCount) {
+    filterCount.hidden = !filtered;
+    filterCount.textContent = `${visible} of ${total} shown`;
+  }
+  if (btnClearFilters) btnClearFilters.hidden = !filtered;
+}
+
+filterInput?.addEventListener("input", applyFilters);
+
+$$(".style-chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    const s = chip.dataset.style;
+    if (activeStyles.has(s)) { activeStyles.delete(s); chip.classList.remove("active"); }
+    else                      { activeStyles.add(s);    chip.classList.add("active"); }
+    applyFilters();
+  });
+});
+
+btnClearFilters?.addEventListener("click", () => {
+  if (filterInput) filterInput.value = "";
+  activeStyles.clear();
+  $$(".style-chip").forEach(c => c.classList.remove("active"));
+  applyFilters();
 });
 
 /* ── card detail drawer ──────────────────────────────────────────── */
