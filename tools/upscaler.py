@@ -40,13 +40,11 @@ def upscale_file(input_path: Path, output_path: Path,
                  scale: int = DEFAULT_SCALE,
                  model: str = DEFAULT_MODEL,
                  verbose: bool = False) -> None:
-    """Run realesrgan-ncnn-vulkan on a single file."""
+    """Run realesrgan-ncnn-vulkan on a single file, falling back to Pillow LANCZOS."""
     binary = find_binary()
     if not binary:
-        raise RuntimeError(
-            "realesrgan-ncnn-vulkan not found. Set REALESRGAN_BIN env var "
-            "to the executable path, or put it on PATH."
-        )
+        _upscale_pil(input_path, output_path, scale)
+        return
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -68,3 +66,13 @@ def upscale_file(input_path: Path, output_path: Path,
         raise RuntimeError(f"upscaler failed (exit {res.returncode})")
     if verbose and res.stderr:
         print(res.stderr, file=sys.stderr)
+
+
+def _upscale_pil(input_path: Path, output_path: Path, scale: int) -> None:
+    """Pillow LANCZOS fallback used when realesrgan-ncnn-vulkan is not installed."""
+    from PIL import Image
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    img = Image.open(input_path).convert("RGBA")
+    w, h = img.size
+    img = img.resize((w * scale, h * scale), Image.LANCZOS)
+    img.save(output_path, "PNG")
