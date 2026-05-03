@@ -705,6 +705,52 @@ def api_ingest_mpcautofill_bulk():
     return jsonify(job.to_dict())
 
 
+@app.route("/api/ingest/scryfall-pinned", methods=["POST"])
+def api_ingest_scryfall_pinned():
+    """
+    Batch-ingest a list of cards from Scryfall using explicit set+collector number.
+
+    Body: { "entries": [{"name": "Sol Ring", "set": "cmm", "num": "366"}, ...] }
+
+    Only entries with both set and num are meaningful — the caller should
+    filter those before sending.
+    """
+    body = request.json or {}
+    entries: list[dict] = body.get("entries", [])
+    if not entries:
+        return jsonify({"error": "no entries provided"}), 400
+    if len(entries) > 500:
+        return jsonify({"error": "too many entries (max 500)"}), 400
+
+    def run(job):
+        lib = get_lib()
+        total = len(entries)
+        ok, failed = [], []
+
+        for i, e in enumerate(entries, 1):
+            name = e.get("name", "")
+            set_code = e.get("set")
+            num = e.get("num")
+            job.update(f"[{i}/{total}] {name} ({set_code} {num})…")
+            try:
+                slug, pid = ingest_scryfall(
+                    lib, name, set_code, num, make_default=True,
+                )
+                lib.save()
+                ok.append({"name": name, "slug": slug, "printing_id": pid})
+            except Exception as exc:
+                failed.append({"name": name, "error": str(exc)})
+
+        summary = f"Done — {len(ok)} added"
+        if failed:
+            summary += f", {len(failed)} failed"
+        job.update(summary)
+        return {"ok": ok, "failed": failed}
+
+    job = jobs.submit(f"Auto-fetch {len(entries)} pinned printings", run)
+    return jsonify(job.to_dict())
+
+
 @app.route("/api/import-mpcfill-xml", methods=["POST"])
 def api_import_mpcfill_xml():
     """Parse an MPCFill XML order and return a standard decklist string."""
@@ -878,6 +924,8 @@ def api_parse_decklist():
             "qty": g["qty"],
             "name": g["name"],
             "slug": slug,
+            "set_code": g["set_code"],
+            "collector_num": g["collector_num"],
             "status": status,
             "printings": printings,
             "selected": selected,

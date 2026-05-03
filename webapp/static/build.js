@@ -15,6 +15,8 @@ const importNote     = document.getElementById('importNote');
 const btnIngestXml   = document.getElementById('btnIngestXml');
 const xmlArtFileInput = document.getElementById('xmlArtFileInput');
 const ingestNote     = document.getElementById('ingestNote');
+const btnFetchPinned  = document.getElementById('btnFetchPinned');
+const fetchPinnedNote = document.getElementById('fetchPinnedNote');
 const btnFetchMissing = document.getElementById('btnFetchMissing');
 const fetchNote      = document.getElementById('fetchNote');
 const btnBuild       = document.getElementById('btnBuild');
@@ -49,6 +51,7 @@ let _findRow = null;   // the deck row currently open in the find pane
   xmlFileInput.addEventListener('change', importMpcFillXml);
   btnIngestXml.addEventListener('click', () => xmlArtFileInput.click());
   xmlArtFileInput.addEventListener('change', ingestArtFromXml);
+  btnFetchPinned.addEventListener('click', fetchPinnedPrintings);
   btnFetchMissing.addEventListener('click', fetchMissingFromAutofill);
 
   findPaneClose.addEventListener('click', closeFindPane);
@@ -388,9 +391,14 @@ function updateBuildButton() {
   btnBuild.disabled = missing > 0 || empty;
   btnBuild.textContent = missing > 0 ? `Fix ${missing} first` : 'Build →';
 
+  const pinned = parsedRows.filter(
+    r => r.status === 'missing' && r.set_code && r.collector_num
+  );
+  btnFetchPinned.hidden = pinned.length === 0;
+  btnFetchPinned.textContent = `Auto-fetch ${pinned.length} pinned from Scryfall`;
+
   btnFetchMissing.hidden = missing === 0;
-  btnFetchMissing.textContent =
-    `Fetch ${missing} missing from MPC AutoFill`;
+  btnFetchMissing.textContent = `Fetch ${missing} missing from MPC AutoFill`;
 }
 
 /* ── build ───────────────────────────────────────────────────────── */
@@ -426,6 +434,63 @@ async function buildDeck() {
     statusChip.textContent = '✕ ' + e.message;
     btnBuild.disabled = false;
     btnBuild.textContent = 'Build →';
+  }
+}
+
+/* ── Auto-fetch pinned printings from Scryfall ───────────────────── */
+
+async function fetchPinnedPrintings() {
+  const pinned = parsedRows.filter(
+    r => r.status === 'missing' && r.set_code && r.collector_num
+  );
+  if (!pinned.length) return;
+
+  btnFetchPinned.disabled = true;
+  fetchPinnedNote.hidden = false;
+  fetchPinnedNote.style.color = '';
+  fetchPinnedNote.textContent = `Fetching ${pinned.length} cards from Scryfall…`;
+
+  const entries = pinned.map(r => ({ name: r.name, set: r.set_code, num: r.collector_num }));
+
+  try {
+    const job = await api('/api/ingest/scryfall-pinned', {
+      method: 'POST',
+      body: JSON.stringify({ entries }),
+    });
+    await pollPinnedJob(job.id, pinned.length);
+  } catch (e) {
+    fetchPinnedNote.textContent = '✕ ' + e.message;
+    fetchPinnedNote.style.color = 'var(--red)';
+    btnFetchPinned.disabled = false;
+  }
+}
+
+async function pollPinnedJob(jid, total) {
+  while (true) {
+    await new Promise(r => setTimeout(r, 1200));
+    const j = await api(`/api/job/${jid}`).catch(() => null);
+    if (!j) return;
+
+    fetchPinnedNote.textContent = j.progress || j.state;
+
+    if (j.state === 'done') {
+      const r = j.result || {};
+      const ok     = (r.ok     || []).length;
+      const failed = (r.failed || []).length;
+      let msg = `✓ ${ok} of ${total} downloaded`;
+      if (failed) msg += ` · ${failed} failed`;
+      fetchPinnedNote.textContent = msg;
+      btnFetchPinned.disabled = false;
+      if (ok > 0) setTimeout(() => parseDeck(), 800);
+      return;
+    }
+
+    if (j.state === 'failed') {
+      fetchPinnedNote.textContent = '✕ ' + (j.error || 'Failed');
+      fetchPinnedNote.style.color = 'var(--red)';
+      btnFetchPinned.disabled = false;
+      return;
+    }
   }
 }
 
