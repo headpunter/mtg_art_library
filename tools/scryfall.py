@@ -33,12 +33,31 @@ def fetch_card(name: str, set_code: str | None = None,
     return _get(f"{API}/cards/named", params=params)
 
 
-def png_url(card_json: dict) -> str:
+_DFC_LAYOUTS = frozenset({
+    "modal_dfc", "transform", "double_faced_token",
+    "reversible_card", "art_series",
+})
+
+
+def is_dfc(card_json: dict) -> bool:
+    return card_json.get("layout") in _DFC_LAYOUTS
+
+
+def face_png_urls(card_json: dict) -> list[tuple[str, str]]:
+    """Return [(face_name, png_url)] for each face that has an image."""
     if "image_uris" in card_json:
-        return card_json["image_uris"]["png"]
+        return [(card_json["name"], card_json["image_uris"]["png"])]
+    faces = []
     for face in card_json.get("card_faces") or []:
         if "image_uris" in face:
-            return face["image_uris"]["png"]
+            faces.append((face["name"], face["image_uris"]["png"]))
+    return faces
+
+
+def png_url(card_json: dict) -> str:
+    faces = face_png_urls(card_json)
+    if faces:
+        return faces[0][1]
     raise RuntimeError(f"No image_uris on {card_json.get('name')}")
 
 

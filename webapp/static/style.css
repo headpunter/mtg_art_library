@@ -1094,6 +1094,133 @@ body[data-page="card"] main {
 }
 .tok-chip:hover { border-color: var(--gold); }
 
+/* ── cardbacks page ─────────────────────────────────────────────── */
+.page-layout {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+.page-header { margin-bottom: 24px; }
+.page-title {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--gold);
+  margin: 0 0 4px;
+}
+.page-sub { color: var(--fg-dim); font-size: .9rem; margin: 0; }
+
+.cb-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.cb-upload-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.cb-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .85rem;
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+
+.cb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+.cb-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  transition: border-color .15s;
+}
+.cb-card:hover { border-color: var(--fg-dim); }
+.cb-card.cb-default { border-color: var(--gold); }
+
+.cb-img-wrap {
+  position: relative;
+  aspect-ratio: 2.5 / 3.5;
+  background: var(--bg-1);
+  overflow: hidden;
+}
+.cb-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cb-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--gold);
+  color: var(--bg-1);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.cb-info {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cb-name {
+  font-size: .85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cb-actions {
+  display: flex;
+  gap: 8px;
+  font-size: .75rem;
+}
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--fg-dim);
+  font-size: inherit;
+  font-family: inherit;
+}
+.btn-link:hover { color: var(--fg); }
+.btn-link.danger:hover { color: #e05050; }
+
+/* cardback dropdown in build page */
+.cb-select-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: .85rem;
+}
+.cb-select-row label { color: var(--fg-dim); }
+.cb-select-row select {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  padding: 4px 8px;
+  font-size: .85rem;
+  font-family: var(--font-mono);
+}
+
 .card-aside-footer {
   margin-top: auto;
   display: flex;

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(curl -s 'https://raw.githubusercontent.com/chilli-axe/mpc-autofill/master/MPCAutofill/MPCAutofill/urls.py')",
+      "Bash(curl -s 'https://raw.githubusercontent.com/chilli-axe/mpc-autofill/master/MPCAutofill/cardpicker/models.py')",
+      "Bash(curl -s 'https://raw.githubusercontent.com/chilli-axe/mpc-autofill/master/MPCAutofill/cardpicker/urls.py')",
+      "Bash(curl -s 'https://raw.githubusercontent.com/chilli-axe/mpc-autofill/master/MPCAutofill/cardpicker/schema_types.py')"
+    ]
+  }
+}

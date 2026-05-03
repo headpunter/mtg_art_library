@@ -27,6 +27,7 @@ const buildFooter    = document.getElementById('buildFooter');
 const footerSummary  = document.getElementById('footerSummary');
 const formatSeg      = document.getElementById('formatSeg');
 const pdfLayoutSel   = document.getElementById('pdfLayoutSel');
+const cardbackSel    = document.getElementById('cardbackSel');
 const tokensPanel    = document.getElementById('tokensPanel');
 const tokensList     = document.getElementById('tokensList');
 const tokensHint     = document.getElementById('tokensHint');
@@ -76,7 +77,20 @@ let _findRow = null;   // the deck row currently open in the find pane
       .forEach(b => b.classList.toggle('active', b === btn));
     selectedFormat = btn.dataset.fmt;
     pdfLayoutSel.hidden = selectedFormat !== 'pdf';
+    cardbackSel.hidden  = selectedFormat !== 'xml';
   });
+
+  // Load cardbacks into dropdown
+  fetch('/api/cardbacks').then(r => r.json()).then(data => {
+    cardbackSel.innerHTML = '<option value="">— no cardback —</option>';
+    for (const cb of data.cardbacks) {
+      const opt = document.createElement('option');
+      opt.value = cb.key;
+      opt.textContent = cb.name + (cb.is_default ? ' ★' : '');
+      if (cb.is_default) opt.selected = true;
+      cardbackSel.appendChild(opt);
+    }
+  }).catch(() => {});
 
   if (saved && saved.trim()) parseDeck();
 }
@@ -492,6 +506,7 @@ async function buildDeck() {
 
   const buildPayload = { rows, format: selectedFormat };
   if (selectedFormat === 'pdf') buildPayload.layout = pdfLayoutSel.value;
+  if (selectedFormat === 'xml' && cardbackSel.value) buildPayload.cardback_key = cardbackSel.value;
 
   btnBuild.disabled = true;
   btnBuild.textContent = 'Building…';

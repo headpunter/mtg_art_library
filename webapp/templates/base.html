@@ -26,6 +26,10 @@
        class="nav-item {% if request.endpoint == 'build_view' %}active{% endif %}">
       Build Deck
     </a>
+    <a href="{{ url_for('page_cardbacks') }}"
+       class="nav-item {% if request.endpoint == 'page_cardbacks' %}active{% endif %}">
+      Cardbacks
+    </a>
     <a href="{{ url_for('settings_view') }}"
        class="nav-item {% if request.endpoint == 'settings_view' %}active{% endif %}">
       Settings

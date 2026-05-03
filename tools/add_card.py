@@ -57,42 +57,53 @@ def _process_card_json(
     bleed_method: str | None = None,
     make_default: bool = False,
 ) -> tuple[str, str]:
-    """Download, upscale, bleed and save a card already fetched from Scryfall."""
+    """Download, upscale, bleed and save a card already fetched from Scryfall.
+
+    Handles DFC automatically: if the card has two face images, the back face
+    is saved as {pid}_b.png alongside the front.
+    """
     real_name = card_json["name"]
     real_set  = card_json["set"]
     real_num  = card_json["collector_number"]
     pid  = normalize_printing_id(real_set, real_num)
     slug = normalize_name(real_name)
 
-    # Skip if this exact printing is already in the library
     if slug in lib.cards and pid in lib.cards[slug].printings:
         print(f"  -- {real_name} ({real_set} {real_num}) already in library")
         return slug, pid
 
-    try:
-        img_url = scryfall.png_url(card_json)
-    except RuntimeError as exc:
-        raise RuntimeError(f"No image for {real_name}: {exc}") from exc
+    faces = scryfall.face_png_urls(card_json)
+    if not faces:
+        raise RuntimeError(f"No image faces for {real_name}")
 
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        raw = td / "raw.png"
-        img = scryfall.download_png(img_url)
-        img.save(raw, "PNG")
-        print(f"    raw: {img.size}")
+    dfc = len(faces) > 1
+    method = bleed_method or lib.default_bleed
 
-        up = td / "up.png"
-        upscaler.upscale_file(raw, up)
-        upscaled = Image.open(up)
-        print(f"    upscaled: {upscaled.size}")
+    def _download_and_process(url: str, out_path: Path) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            raw = td / "raw.png"
+            img = scryfall.download_png(url)
+            img.save(raw, "PNG")
+            print(f"    raw: {img.size}")
+            up = td / "up.png"
+            upscaler.upscale_file(raw, up)
+            upscaled = Image.open(up)
+            print(f"    upscaled: {upscaled.size}")
+            finished = apply_bleed(upscaled, lib.canonical_dpi, method)
+            print(f"    finished: {finished.size}")
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            finished.save(out_path, "PNG", dpi=(lib.canonical_dpi, lib.canonical_dpi))
 
-        method = bleed_method or lib.default_bleed
-        finished = apply_bleed(upscaled, lib.canonical_dpi, method)
-        print(f"    finished: {finished.size}")
+    # Front face
+    _download_and_process(faces[0][1], lib.file_path(slug, pid))
 
-        out_path = lib.file_path(slug, pid)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        finished.save(out_path, "PNG", dpi=(lib.canonical_dpi, lib.canonical_dpi))
+    # Back face for DFC
+    back_name = None
+    if dfc:
+        back_name = faces[1][0]
+        print(f"  -> back face: {back_name}")
+        _download_and_process(faces[1][1], lib.back_file_path(slug, pid))
 
     p = Printing(
         source="scryfall",
@@ -100,6 +111,8 @@ def _process_card_json(
         set=real_set,
         collector_number=real_num,
         bleed=method,
+        is_dfc=dfc,
+        back_name=back_name,
     )
     card_obj = lib.add_printing(real_name, pid, p, make_default=make_default)
 
@@ -107,7 +120,7 @@ def _process_card_json(
     if tokens:
         card_obj.related_tokens = tokens
 
-    print(f"    OK {slug}/{pid}.png")
+    print(f"    OK {slug}/{pid}.png" + (" + back" if dfc else ""))
     return slug, pid
 
 

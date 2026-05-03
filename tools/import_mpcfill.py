@@ -32,6 +32,8 @@ class MpcFillEntry:
     collector_num: str | None
     original_name: str           # raw filename (no extension)
     drive_id: str | None = None  # Google Drive file ID from <id> element
+    back_drive_id: str | None = None   # Drive ID of the back face (DFC)
+    back_name: str | None = None       # parsed name of the back face
 
 
 # ── filename parsing regexes ───────────────────────────────────────────
@@ -84,16 +86,32 @@ def _count_slots(slots_text: str) -> int:
 def parse_mpcfill_xml(
     xml_text: str,
     skip_tokens: bool = False,
-) -> tuple[list[MpcFillEntry], int]:
+) -> tuple[list[MpcFillEntry], int, str | None]:
     """
     Parse an MPCFill XML string.
 
-    Returns (entries, tokens_skipped).
+    Returns (entries, tokens_skipped, cardback_drive_id).
+    Back-face DFC data is embedded in each entry's back_drive_id / back_name.
     """
     root = ET.fromstring(xml_text)
     fronts = root.find('fronts')
     if fronts is None:
-        return [], 0
+        return [], 0, None
+
+    # Build back-face lookup: first slot of each back card -> (drive_id, filename)
+    backs_el = root.find('backs')
+    back_by_slot: dict[str, tuple[str | None, str]] = {}
+    if backs_el is not None:
+        for card in backs_el.findall('card'):
+            slots    = (card.findtext('slots') or '').strip()
+            back_id  = (card.findtext('id')    or '').strip() or None
+            back_fn  = (card.findtext('name')  or '').strip()
+            for s in slots.split(','):
+                s = s.strip()
+                if s:
+                    back_by_slot[s] = (back_id, back_fn)
+
+    cardback_id = (root.findtext('cardback') or '').strip() or None
 
     entries: list[MpcFillEntry] = []
     tokens_skipped = 0
@@ -116,6 +134,13 @@ def parse_mpcfill_xml(
         if not name:
             continue
 
+        # Check first slot for a back-face entry
+        first_slot = slots.split(',')[0].strip()
+        back_drive_id, back_name = None, None
+        if first_slot in back_by_slot:
+            back_drive_id, back_fn = back_by_slot[first_slot]
+            back_name, _, _ = _parse_filename(back_fn)
+
         entries.append(MpcFillEntry(
             qty=qty,
             name=name,
@@ -123,9 +148,11 @@ def parse_mpcfill_xml(
             collector_num=collector_num,
             original_name=_EXT.sub('', filename),
             drive_id=drive_id,
+            back_drive_id=back_drive_id,
+            back_name=back_name,
         ))
 
-    return entries, tokens_skipped
+    return entries, tokens_skipped, cardback_id
 
 
 def entries_to_decklist(entries: list[MpcFillEntry]) -> str:

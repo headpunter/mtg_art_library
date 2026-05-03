@@ -880,7 +880,7 @@ def api_import_mpcfill_xml():
 
     try:
         from import_mpcfill import parse_mpcfill_xml, entries_to_decklist
-        entries, tokens_skipped = parse_mpcfill_xml(xml_text)
+        entries, tokens_skipped, _cb = parse_mpcfill_xml(xml_text)
         return jsonify({
             "decklist": entries_to_decklist(entries),
             "unique": len(entries),
@@ -913,7 +913,7 @@ def api_ingest_mpcfill_xml_art():
 
     try:
         from import_mpcfill import parse_mpcfill_xml
-        entries, _ = parse_mpcfill_xml(xml_text, skip_tokens=True)
+        entries, _, _cb = parse_mpcfill_xml(xml_text, skip_tokens=True)
     except _ET.ParseError as exc:
         return jsonify({"error": f"Invalid XML: {exc}"}), 400
 
@@ -927,27 +927,52 @@ def api_ingest_mpcfill_xml_art():
     def run(job):
         from download_drive import download_drive_file
         from add_card import ingest_file
+        from library import Printing
+        from library import normalize_printing_id
 
         lib = get_lib()
         staging = lib.root / ".upload_staging"
         staging.mkdir(exist_ok=True)
 
-        ok, failed, skipped = [], [], []
+        ok, failed = [], []
         total = len(downloadable)
 
         for i, e in enumerate(downloadable, 1):
-            label = f"{e.name} ({e.original_name})"
             job.update(f"[{i}/{total}] {e.name}…")
             tmp = staging / f"xmlart_{e.drive_id}.jpg"
             try:
                 download_drive_file(e.drive_id, tmp)
                 slug, pid = ingest_file(
                     lib, tmp, e.name,
-                    tag=f"mpcfill_xml",
+                    tag="mpcfill_xml",
                     make_default=True,
                 )
+                # If this entry has a back face, download and save it
+                if e.back_drive_id and e.back_name:
+                    tmp_back = staging / f"xmlart_{e.back_drive_id}.jpg"
+                    try:
+                        download_drive_file(e.back_drive_id, tmp_back)
+                        back_img_path = lib.back_file_path(slug, pid)
+                        from PIL import Image
+                        from bleed import apply_bleed
+                        img = Image.open(tmp_back).convert("RGBA")
+                        finished = apply_bleed(img, lib.canonical_dpi, lib.default_bleed)
+                        back_img_path.parent.mkdir(parents=True, exist_ok=True)
+                        finished.save(back_img_path, "PNG",
+                                      dpi=(lib.canonical_dpi, lib.canonical_dpi))
+                        # Update printing with DFC info
+                        card = lib.cards.get(slug)
+                        if card and pid in card.printings:
+                            card.printings[pid].is_dfc = True
+                            card.printings[pid].back_name = e.back_name
+                    finally:
+                        try:
+                            tmp_back.unlink(missing_ok=True)
+                        except OSError:
+                            pass
                 lib.save()
-                ok.append({"name": e.name, "slug": slug, "printing_id": pid})
+                ok.append({"name": e.name, "slug": slug, "printing_id": pid,
+                           "dfc": bool(e.back_drive_id)})
             except Exception as exc:
                 failed.append({"name": e.name, "error": str(exc)})
             finally:
@@ -1096,7 +1121,9 @@ def api_build():
         if fmt == "xml":
             from build_autofill_xml import build_autofill_xml
             out_path = lib.root / "exports" / f"{ts}_autofill.xml"
-            result_path = build_autofill_xml(lib, rows, out_path, job=job)
+            cardback_key = body.get("cardback_key") or None
+            result_path = build_autofill_xml(lib, rows, out_path,
+                                             cardback_key=cardback_key, job=job)
             label = "autofill.xml"
         elif fmt == "pdf":
             from build_pdf import build_pdf
@@ -1149,6 +1176,98 @@ def api_build_download(jid: str):
         "application/zip"
     )
     return send_file(file_path, as_attachment=True, download_name=dl_name, mimetype=mime)
+
+
+# ---------- cardbacks ----------
+
+@app.route("/api/cardbacks")
+def api_cardbacks_list():
+    lib = get_lib()
+    result = []
+    for key, cb in lib.cardbacks.items():
+        result.append({
+            "key": key,
+            "name": cb.name,
+            "source": cb.source,
+            "is_default": key == lib.default_cardback,
+            "thumb_url": f"/thumb/cardbacks/{key}",
+        })
+    return jsonify({"cardbacks": result, "default": lib.default_cardback})
+
+
+@app.route("/api/cardbacks", methods=["POST"])
+def api_cardbacks_add():
+    """Add a cardback from an uploaded file."""
+    from library import Cardback, normalize_name
+    from datetime import datetime as _dt
+
+    if "file" not in request.files:
+        return jsonify({"error": "no file"}), 400
+    f = request.files["file"]
+    name = request.form.get("name", "").strip() or Path(f.filename).stem
+    make_default = request.form.get("default", "").lower() in ("1", "true", "yes")
+
+    key = normalize_name(name)
+    lib = get_lib()
+    staging = lib.root / ".upload_staging"
+    staging.mkdir(exist_ok=True)
+    tmp = staging / f"cb_{key}_{f.filename}"
+    f.save(tmp)
+
+    try:
+        from PIL import Image
+        img = Image.open(tmp).convert("RGB")
+        out = lib.cardback_file_path(key)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        img.save(out, "PNG", dpi=(lib.canonical_dpi, lib.canonical_dpi))
+    finally:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    cb = Cardback(
+        name=name,
+        source="file",
+        added=_dt.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+    lib.cardbacks[key] = cb
+    if make_default or not lib.default_cardback:
+        lib.default_cardback = key
+    lib.save()
+    return jsonify({"key": key, "name": name, "is_default": lib.default_cardback == key})
+
+
+@app.route("/api/cardbacks/<key>", methods=["DELETE"])
+def api_cardbacks_delete(key: str):
+    lib = get_lib()
+    if key not in lib.cardbacks:
+        return jsonify({"error": "not found"}), 404
+    lib.cardbacks.pop(key)
+    if lib.default_cardback == key:
+        lib.default_cardback = next(iter(lib.cardbacks), None)
+    img = lib.cardback_file_path(key)
+    try:
+        img.unlink(missing_ok=True)
+    except OSError:
+        pass
+    lib.save()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/cardbacks/<key>/set-default", methods=["POST"])
+def api_cardbacks_set_default(key: str):
+    lib = get_lib()
+    if key not in lib.cardbacks:
+        return jsonify({"error": "not found"}), 404
+    lib.default_cardback = key
+    lib.save()
+    return jsonify({"ok": True, "default": key})
+
+
+@app.route("/cardbacks")
+def page_cardbacks():
+    return render_template("cardbacks.html")
 
 
 # ---------- entry point ----------

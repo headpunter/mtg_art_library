@@ -138,7 +138,9 @@ class Printing:
     collector_number: str | None = None
     tag: str | None = None
     added: str = ""           # ISO date
-    styles: list[str] = field(default_factory=list)  # user-defined style labels
+    styles: list[str] = field(default_factory=list)
+    is_dfc: bool = False      # has a back face stored as {pid}_b.png
+    back_name: str | None = None  # display name of back face
 
     def to_dict(self) -> dict[str, Any]:
         d = {"source": self.source, "bleed": self.bleed, "added": self.added}
@@ -148,6 +150,10 @@ class Printing:
                 d[k] = v
         if self.styles:
             d["styles"] = list(self.styles)
+        if self.is_dfc:
+            d["is_dfc"] = True
+        if self.back_name:
+            d["back_name"] = self.back_name
         return d
 
     @classmethod
@@ -156,7 +162,34 @@ class Printing:
                   ("source", "bleed", "scryfall_id", "set",
                    "collector_number", "tag", "added")}
         kwargs["styles"] = d.get("styles") or []
+        kwargs["is_dfc"] = bool(d.get("is_dfc", False))
+        kwargs["back_name"] = d.get("back_name")
         return cls(**kwargs)
+
+
+@dataclass
+class Cardback:
+    name: str
+    source: str = "file"     # "file" | "drive"
+    tag: str | None = None
+    drive_id: str | None = None
+    added: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        d = {"name": self.name, "source": self.source, "added": self.added}
+        if self.tag:      d["tag"]      = self.tag
+        if self.drive_id: d["drive_id"] = self.drive_id
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Cardback":
+        return cls(
+            name=d["name"],
+            source=d.get("source", "file"),
+            tag=d.get("tag"),
+            drive_id=d.get("drive_id"),
+            added=d.get("added", ""),
+        )
 
 
 @dataclass
@@ -194,7 +227,9 @@ class Library:
     default_bleed: str = "mirror"
     preferred_sources: list[str] = field(default_factory=list)
     autofill_url: str = ""
-    cards: dict[str, Card] = field(default_factory=dict)  # slug -> Card
+    cards: dict[str, Card] = field(default_factory=dict)
+    cardbacks: dict[str, Cardback] = field(default_factory=dict)  # key -> Cardback
+    default_cardback: str | None = None
 
     @classmethod
     def load(cls, root: Path | None = None) -> "Library":
@@ -211,11 +246,14 @@ class Library:
             preferred_sources=data.get("preferred_sources", []),
             autofill_url=data.get("autofill_url", ""),
             cards={k: Card.from_dict(v) for k, v in data.get("cards", {}).items()},
+            cardbacks={k: Cardback.from_dict(v) for k, v in data.get("cardbacks", {}).items()},
+            default_cardback=data.get("default_cardback"),
         )
 
     def save(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         art_dir(self.root).mkdir(exist_ok=True)
+        (art_dir(self.root) / "cardbacks").mkdir(exist_ok=True)
         data = {
             "version": 1,
             "canonical_dpi": self.canonical_dpi,
@@ -225,6 +263,10 @@ class Library:
         }
         if self.autofill_url:
             data["autofill_url"] = self.autofill_url
+        if self.cardbacks:
+            data["cardbacks"] = {k: v.to_dict() for k, v in self.cardbacks.items()}
+        if self.default_cardback:
+            data["default_cardback"] = self.default_cardback
         data["cards"] = {k: v.to_dict() for k, v in sorted(self.cards.items())}
         index_path(self.root).write_text(
             json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -237,6 +279,12 @@ class Library:
 
     def file_path(self, card_slug: str, printing_id: str) -> Path:
         return art_dir(self.root) / card_slug / f"{printing_id}.png"
+
+    def back_file_path(self, card_slug: str, printing_id: str) -> Path:
+        return art_dir(self.root) / card_slug / f"{printing_id}_b.png"
+
+    def cardback_file_path(self, cardback_key: str) -> Path:
+        return art_dir(self.root) / "cardbacks" / f"{cardback_key}.png"
 
     def add_printing(self, card_name: str, printing_id: str, printing: Printing,
                      make_default: bool = False) -> Card:

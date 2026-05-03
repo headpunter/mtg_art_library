@@ -31,12 +31,14 @@ def build_autofill_xml(
     out_path: Path,
     cardstock: str = "(S30) Standard Smooth",
     foil: bool = False,
+    cardback_key: str | None = None,
     job=None,
 ) -> Path:
     """
     Generate an MPC AutoFill XML referencing local art files via file:// URIs.
 
     rows: [{"slug": str, "printing_id": str, "qty": int, "name": str}]
+    cardback_key: key into lib.cardbacks (or None to use library default)
     Returns the path to the written XML file.
     """
     total_qty = sum(row.get("qty", 1) for row in rows)
@@ -51,6 +53,8 @@ def build_autofill_xml(
     ET.SubElement(details, "foil").text      = "true" if foil else "false"
 
     fronts = ET.SubElement(root, "fronts")
+    backs_entries: list[tuple[str, Any, str, str]] = []  # (slots_str, p, back_name, back_uri)
+
     slot = 0
     total = len(rows)
 
@@ -79,13 +83,42 @@ def build_autofill_xml(
             file_name = f"{name}.jpg"
 
         slots_str = ",".join(str(slot + j) for j in range(qty))
-        slot += qty
 
         card_el = ET.SubElement(fronts, "card")
         ET.SubElement(card_el, "id").text     = src.as_uri()
         ET.SubElement(card_el, "slots").text  = slots_str
         ET.SubElement(card_el, "name").text   = file_name
         ET.SubElement(card_el, "query").text  = name.lower()
+
+        # Collect back-face entries for DFC cards
+        if p and p.is_dfc:
+            back_src = lib.back_file_path(slug, pid)
+            if back_src.exists():
+                back_display = p.back_name or (name + " (back)")
+                backs_entries.append((slots_str, p, back_display, back_src.as_uri()))
+
+        slot += qty
+
+    # Write backs section for DFCs
+    if backs_entries:
+        backs_el = ET.SubElement(root, "backs")
+        for slots_str, p, back_display, back_uri in backs_entries:
+            if p.set and p.collector_number:
+                back_fn = f"{back_display} [{p.set.upper()}] {{{p.collector_number}}}.jpg"
+            else:
+                back_fn = f"{back_display}.jpg"
+            card_el = ET.SubElement(backs_el, "card")
+            ET.SubElement(card_el, "id").text    = back_uri
+            ET.SubElement(card_el, "slots").text = slots_str
+            ET.SubElement(card_el, "name").text  = back_fn
+            ET.SubElement(card_el, "query").text = back_display.lower()
+
+    # Write cardback
+    cb_key = cardback_key or lib.default_cardback
+    if cb_key and cb_key in lib.cardbacks:
+        cb_path = lib.cardback_file_path(cb_key)
+        if cb_path.exists():
+            ET.SubElement(root, "cardback").text = cb_path.as_uri()
 
     if job:
         job.update("Writing XML…")
