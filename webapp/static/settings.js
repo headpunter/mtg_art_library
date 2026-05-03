@@ -6,6 +6,9 @@ let allSources  = [];   // [{key, name, description}, ...]
 let prefKeys    = [];   // ordered list of source keys
 
 /* ── elements ────────────────────────────────────────────────────── */
+const autofillUrl  = document.getElementById('autofillUrl');
+const btnSaveUrl   = document.getElementById('btnSaveUrl');
+const saveUrlNote  = document.getElementById('saveUrlNote');
 const prefList    = document.getElementById('prefList');
 const prefEmpty   = document.getElementById('prefEmpty');
 const availList   = document.getElementById('availList');
@@ -21,6 +24,7 @@ const saveNote    = document.getElementById('saveNote');
   ]);
 
   prefKeys   = settingsRes.preferred_sources || [];
+  autofillUrl.value = settingsRes.autofill_url || '';
   allSources = sourcesRes.sources || [];
 
   if (sourcesRes.error && !allSources.length) {
@@ -126,7 +130,28 @@ availList.addEventListener('click', e => {
 
 sourceSearch.addEventListener('input', renderAvail);
 
-/* ── save ────────────────────────────────────────────────────────── */
+/* ── save url ────────────────────────────────────────────────────── */
+btnSaveUrl.addEventListener('click', async () => {
+  btnSaveUrl.disabled = true;
+  saveUrlNote.hidden = false;
+  saveUrlNote.style.color = '';
+  saveUrlNote.textContent = 'Saving…';
+  try {
+    await api('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify({ autofill_url: autofillUrl.value.trim() }),
+    });
+    saveUrlNote.textContent = '✓ Saved';
+    setTimeout(() => { saveUrlNote.hidden = true; }, 2000);
+  } catch (e) {
+    saveUrlNote.textContent = '✕ ' + e.message;
+    saveUrlNote.style.color = 'var(--red)';
+  } finally {
+    btnSaveUrl.disabled = false;
+  }
+});
+
+/* ── save preferred sources ──────────────────────────────────────── */
 btnSave.addEventListener('click', async () => {
   btnSave.disabled = true;
   saveNote.hidden  = false;

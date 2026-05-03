@@ -21,7 +21,7 @@ from typing import Any
 
 import requests
 
-BASE = "https://mpcautofill.com"
+BASE = ""  # must be configured per-library; no public default since MPC AutoFill redesign
 
 _DEFAULT_FILTER: dict[str, Any] = {
     "filterSettings": {
@@ -51,6 +51,7 @@ def search_cards(
     search_settings: dict | None = None,
     timeout: int = 30,
     between_requests: float = 0.5,
+    base_url: str = "",
 ) -> dict[str, list[dict]]:
     """
     Look up a list of card names on MPC AutoFill.
@@ -69,12 +70,16 @@ def search_cards(
         extension     — "jpg" | "png" etc.
         smallThumbnailUrl / mediumThumbnailUrl
     """
+    base = (base_url or BASE).rstrip("/")
+    if not base:
+        raise ValueError("MPC AutoFill backend URL not configured")
+
     settings = search_settings or _DEFAULT_FILTER
     queries = [{"query": n, "cardType": "CARD"} for n in names]
 
     # ── step 1: get identifiers ──────────────────────────────────────────
     r1 = requests.post(
-        f"{BASE}/2/editorSearch/",
+        f"{base}/2/editorSearch/",
         json={"queries": queries, "searchSettings": settings},
         headers=_HEADERS,
         timeout=timeout,
@@ -96,7 +101,7 @@ def search_cards(
 
     # ── step 2: fetch full card objects ──────────────────────────────────
     r2 = requests.post(
-        f"{BASE}/2/cards/",
+        f"{base}/2/cards/",
         json={"cardIdentifiers": all_ids},
         headers=_HEADERS,
         timeout=timeout,
@@ -114,9 +119,10 @@ def search_cards(
     return out
 
 
-def get_sources(timeout: int = 15) -> dict[str, dict]:
+def get_sources(timeout: int = 15, base_url: str = "") -> dict[str, dict]:
     """Return all available sources keyed by their string key."""
-    r = requests.get(f"{BASE}/2/sources/", headers=_HEADERS, timeout=timeout)
+    base = (base_url or BASE).rstrip("/")
+    r = requests.get(f"{base}/2/sources/", headers=_HEADERS, timeout=timeout)
     r.raise_for_status()
     raw = r.json().get("results", {})
     # Normalise: the API may return { "1": {...}, "2": {...} } (pk-keyed)

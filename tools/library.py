@@ -188,6 +188,7 @@ class Library:
     canonical_size: tuple[int, int] = (CANONICAL_W, CANONICAL_H)
     default_bleed: str = "mirror"
     preferred_sources: list[str] = field(default_factory=list)
+    autofill_url: str = ""
     cards: dict[str, Card] = field(default_factory=dict)  # slug -> Card
 
     @classmethod
@@ -203,6 +204,7 @@ class Library:
             canonical_size=tuple(data.get("canonical_size", [CANONICAL_W, CANONICAL_H])),
             default_bleed=data.get("default_bleed", "mirror"),
             preferred_sources=data.get("preferred_sources", []),
+            autofill_url=data.get("autofill_url", ""),
             cards={k: Card.from_dict(v) for k, v in data.get("cards", {}).items()},
         )
 
@@ -215,8 +217,10 @@ class Library:
             "canonical_size": list(self.canonical_size),
             "default_bleed": self.default_bleed,
             "preferred_sources": self.preferred_sources,
-            "cards": {k: v.to_dict() for k, v in sorted(self.cards.items())},
         }
+        if self.autofill_url:
+            data["autofill_url"] = self.autofill_url
+        data["cards"] = {k: v.to_dict() for k, v in sorted(self.cards.items())}
         index_path(self.root).write_text(
             json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 

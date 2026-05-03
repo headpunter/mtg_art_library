@@ -57,6 +57,21 @@
   <!-- ── right: parsed table ──────────────────────────────────────── -->
   <div class="build-main">
 
+    <!-- art find pane — shown when user clicks Find on a row -->
+    <div class="find-pane" id="findPane" hidden>
+      <div class="find-pane-head">
+        <span class="find-title" id="findPaneTitle">—</span>
+        <div class="find-tabs" id="findPaneTabs">
+          <button class="find-tab active" data-tab="autofill">MPC AutoFill</button>
+          <button class="find-tab" data-tab="scryfall">Scryfall</button>
+        </div>
+        <button class="btn-icon" id="findPaneClose" title="Close">×</button>
+      </div>
+      <div class="find-pane-results" id="findPaneResults">
+        <span class="hint-dim">Loading…</span>
+      </div>
+    </div>
+
     <div class="build-empty" id="buildEmpty">
       <span class="build-empty-glyph">⌬</span>
       <p>Paste a decklist and hit <em>Parse</em></p>

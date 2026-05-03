@@ -378,7 +378,10 @@ def settings_view():
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
     lib = get_lib()
-    return jsonify({"preferred_sources": lib.preferred_sources})
+    return jsonify({
+        "preferred_sources": lib.preferred_sources,
+        "autofill_url": lib.autofill_url,
+    })
 
 
 @app.route("/api/settings", methods=["POST"])
@@ -390,8 +393,11 @@ def api_post_settings():
         if not isinstance(ps, list):
             return jsonify({"error": "preferred_sources must be a list"}), 400
         lib.preferred_sources = [str(s).strip() for s in ps if str(s).strip()]
+    if "autofill_url" in body:
+        lib.autofill_url = str(body["autofill_url"]).strip().rstrip("/")
     lib.save()
-    return jsonify({"ok": True, "preferred_sources": lib.preferred_sources})
+    return jsonify({"ok": True, "preferred_sources": lib.preferred_sources,
+                    "autofill_url": lib.autofill_url})
 
 
 @app.route("/api/mpcautofill/search")
@@ -407,12 +413,16 @@ def api_mpcautofill_search():
         return jsonify({"error": "name required"}), 400
 
     lib = get_lib()
+    if not lib.autofill_url:
+        return jsonify({"unconfigured": True, "results": []})
+
     preferred = lib.preferred_sources
     pref_index = {s.lower(): i for i, s in enumerate(preferred)}
 
     try:
         from mpcautofill import search_cards
-        results = search_cards([name], preferred_sources=preferred or None)
+        results = search_cards([name], preferred_sources=preferred or None,
+                               base_url=lib.autofill_url)
         cards = results.get(name, [])
     except Exception as exc:
         return jsonify({"error": str(exc)}), 502
@@ -485,10 +495,13 @@ def api_mpcautofill_sources():
     """Return available MPC AutoFill sources (cached 1 h)."""
     import time
     global _sources_cache, _sources_cache_ts
+    lib = get_lib()
+    if not lib.autofill_url:
+        return jsonify({"sources": [], "error": "MPC AutoFill backend not configured"})
     if _sources_cache is None or time.time() - _sources_cache_ts > _SOURCES_TTL:
         try:
             from mpcautofill import get_sources
-            raw = get_sources()
+            raw = get_sources(base_url=lib.autofill_url)
             _sources_cache = sorted(
                 [
                     {

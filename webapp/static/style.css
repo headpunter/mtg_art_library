@@ -623,6 +623,54 @@ body[data-page="build"] main {
   color: var(--ink-faint);
 }
 .build-empty em { color: var(--gold-hi); font-style: normal; }
+.build-empty[hidden] { display: none; }
+
+/* find pane — top panel used when searching for art */
+.find-pane {
+  flex-shrink: 0;
+  max-height: 340px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid var(--red);
+  background: var(--bg-2);
+}
+.find-pane[hidden] { display: none; }
+.find-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+.find-pane-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-content: flex-start;
+}
+/* larger card picks inside the pane */
+.find-pane .find-pick {
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 100px;
+  max-width: 120px;
+}
+.find-pane .find-pick img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 745/1040;
+  object-fit: cover;
+}
+.find-pane .find-pick-meta {
+  gap: 1px;
+  padding-top: 4px;
+}
+.find-pane .fp-set { font-size: 10px; }
+.find-pane .fp-num { font-size: 9px; }
 
 .build-table-wrap {
   flex: 1;
@@ -738,22 +786,6 @@ body[data-page="build"] main {
 .btn-find:hover:not(:disabled) { background: rgba(194, 84, 58, .12); }
 .btn-find:disabled { opacity: .4; cursor: not-allowed; }
 
-/* find panel (inline) */
-.find-row { background: var(--bg-2); }
-.find-cell {
-  padding: 0 !important;
-  border-bottom: 1px solid var(--rule-2) !important;
-}
-.find-panel {
-  padding: 14px 20px;
-  border-left: 2px solid var(--red);
-}
-.find-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
 .find-title {
   font-family: var(--mono);
   font-size: 11px;
@@ -1563,6 +1595,24 @@ body[data-page="library"] main { padding: 0; }
   text-align: center;
 }
 .avail-error { color: var(--red); }
+
+.settings-url-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 4px;
+}
+.settings-url-input {
+  flex: 1;
+  max-width: 480px;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  color: var(--paper);
+  padding: 7px 10px;
+}
+.settings-url-input:focus { outline: none; border-color: var(--gold); }
 
 /* settings footer */
 .settings-foot {

@@ -22,6 +22,13 @@ const buildFooter    = document.getElementById('buildFooter');
 const footerSummary  = document.getElementById('footerSummary');
 const formatSeg      = document.getElementById('formatSeg');
 const pdfLayoutSel   = document.getElementById('pdfLayoutSel');
+const findPane       = document.getElementById('findPane');
+const findPaneTitle  = document.getElementById('findPaneTitle');
+const findPaneTabs   = document.getElementById('findPaneTabs');
+const findPaneResults = document.getElementById('findPaneResults');
+const findPaneClose  = document.getElementById('findPaneClose');
+
+let _findRow = null;   // the deck row currently open in the find pane
 
 /* ── init ────────────────────────────────────────────────────────── */
 {
@@ -38,6 +45,14 @@ const pdfLayoutSel   = document.getElementById('pdfLayoutSel');
   btnImportXml.addEventListener('click', () => xmlFileInput.click());
   xmlFileInput.addEventListener('change', importMpcFillXml);
   btnFetchMissing.addEventListener('click', fetchMissingFromAutofill);
+
+  findPaneClose.addEventListener('click', closeFindPane);
+  findPaneTabs.addEventListener('click', e => {
+    const tab = e.target.closest('.find-tab');
+    if (!tab || !_findRow) return;
+    findPaneTabs.querySelectorAll('.find-tab').forEach(t => t.classList.toggle('active', t === tab));
+    loadFindResults(_findRow, tab.dataset.tab);
+  });
 
   formatSeg.addEventListener('click', e => {
     const btn = e.target.closest('.fmt-btn');
@@ -181,66 +196,48 @@ function printingLabel(p) {
   return `${p.tag || p.id} · ${p.bleed}`;
 }
 
-/* ── find panel (MPC AutoFill + Scryfall picker for missing cards) ── */
-function toggleFindPanel(row, tr) {
-  const existing = tr.nextElementSibling;
-  if (existing && existing.classList.contains('find-row')) {
-    existing.remove();
-    return;
-  }
-  const findTr = document.createElement('tr');
-  findTr.className = 'find-row';
-  findTr.dataset.forSlug = row.slug;
-
-  const td = document.createElement('td');
-  td.colSpan = 4;
-  td.className = 'find-cell';
-  td.innerHTML =
-    `<div class="find-panel">` +
-      `<div class="find-header">` +
-        `<span class="find-title"><em>${escapeHtml(row.name)}</em></span>` +
-        `<div class="find-tabs">` +
-          `<button class="find-tab active" data-tab="autofill">MPC AutoFill</button>` +
-          `<button class="find-tab" data-tab="scryfall">Scryfall</button>` +
-        `</div>` +
-        `<button class="btn-icon close-find" title="Close">×</button>` +
-      `</div>` +
-      `<div class="find-results" id="find-res-${escapeHtml(row.slug)}">` +
-        `<span class="hint-dim">Loading…</span>` +
-      `</div>` +
-    `</div>`;
-
-  td.querySelector('.close-find').addEventListener('click', () => findTr.remove());
-  td.querySelectorAll('.find-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      td.querySelectorAll('.find-tab').forEach(t => t.classList.toggle('active', t === tab));
-      loadFindResults(row, findTr, tab.dataset.tab);
-    });
-  });
-
-  findTr.appendChild(td);
-  tr.after(findTr);
-  loadFindResults(row, findTr, 'autofill');
+/* ── find pane (top panel for art selection) ─────────────────────── */
+function closeFindPane() {
+  findPane.hidden = true;
+  _findRow = null;
 }
 
-async function loadFindResults(row, findTr, tab) {
-  const container = findTr.querySelector('.find-results');
-  container.innerHTML = `<span class="hint-dim">Loading…</span>`;
+function toggleFindPanel(row, tr) {
+  if (_findRow && _findRow.slug === row.slug) {
+    closeFindPane();
+    return;
+  }
+  _findRow = row;
+  findPaneTitle.innerHTML = `<em>${escapeHtml(row.name)}</em>`;
+  findPaneTabs.querySelectorAll('.find-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  findPane.hidden = false;
+  findPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  loadFindResults(row, 'autofill');
+}
+
+async function loadFindResults(row, tab) {
+  findPaneResults.innerHTML = `<span class="hint-dim">Loading…</span>`;
   if (tab === 'autofill') {
-    await loadAutofillResults(row, findTr, container);
+    await loadAutofillResults(row);
   } else {
-    await loadScryfallResults(row, findTr, container);
+    await loadScryfallResults(row);
   }
 }
 
 async function loadAutofillResults(row, findTr, container) {
   try {
     const r = await api(`/api/mpcautofill/search?name=${encodeURIComponent(row.name)}`);
-    if (r.error || !r.results?.length) {
-      container.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No art found on MPC AutoFill')}</span>`;
+    if (r.unconfigured) {
+      findPaneResults.innerHTML =
+        `<span class="hint-dim">MPC AutoFill backend not configured. ` +
+        `Add a backend URL in <a href="/settings" style="color:var(--gold-hi)">Settings</a>.</span>`;
       return;
     }
-    container.innerHTML = r.results.map(p => {
+    if (r.error || !r.results?.length) {
+      findPaneResults.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No art found on MPC AutoFill')}</span>`;
+      return;
+    }
+    findPaneResults.innerHTML = r.results.map(p => {
       const isPref = p.preferredRank !== null && p.preferredRank !== undefined;
       return (
         `<div class="find-pick autofill-pick"` +
@@ -258,25 +255,24 @@ async function loadAutofillResults(row, findTr, container) {
         `</div>`
       );
     }).join('');
-    container.querySelectorAll('.autofill-pick').forEach(el => {
+    findPaneResults.querySelectorAll('.autofill-pick').forEach(el => {
       el.addEventListener('click', () => {
-        ingestAutofillForRow(row, el.dataset.identifier, el.dataset.source,
-                             el.dataset.extension, findTr);
+        ingestAutofillForRow(row, el.dataset.identifier, el.dataset.source, el.dataset.extension);
       });
     });
   } catch (e) {
-    container.innerHTML = `<span class="hint-dim">Failed to reach MPC AutoFill</span>`;
+    findPaneResults.innerHTML = `<span class="hint-dim">Failed to reach MPC AutoFill backend</span>`;
   }
 }
 
-async function loadScryfallResults(row, findTr, container) {
+async function loadScryfallResults(row) {
   try {
     const r = await api(`/api/scryfall/printings?name=${encodeURIComponent(row.name)}`);
     if (r.error || !r.top?.length) {
-      container.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No printings found')}</span>`;
+      findPaneResults.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No printings found')}</span>`;
       return;
     }
-    container.innerHTML = r.top.map(p =>
+    findPaneResults.innerHTML = r.top.map(p =>
       `<div class="find-pick${p.foil_only ? ' foil' : ''}"
             data-set="${escapeHtml(p.set)}" data-num="${escapeHtml(p.collector_number)}">
         <img src="${escapeHtml(p.image_normal || '')}" alt="" loading="lazy">
@@ -287,50 +283,46 @@ async function loadScryfallResults(row, findTr, container) {
         </div>
       </div>`
     ).join('');
-    container.querySelectorAll('.find-pick').forEach(el => {
+    findPaneResults.querySelectorAll('.find-pick').forEach(el => {
       el.addEventListener('click', () => {
-        ingestForRow(row, el.dataset.set, el.dataset.num, findTr);
+        ingestForRow(row, el.dataset.set, el.dataset.num);
       });
     });
   } catch (e) {
-    container.innerHTML = `<span class="hint-dim">Failed to load printings</span>`;
+    findPaneResults.innerHTML = `<span class="hint-dim">Failed to load printings</span>`;
   }
 }
 
-async function ingestAutofillForRow(row, identifier, source, extension, findTr) {
-  const tr = findTr.previousElementSibling;
-  findTr.remove();
+function _findRowTr(row) {
+  return deckBody.querySelector(`tr[data-slug="${CSS.escape(row.slug)}"]`);
+}
 
-  const strip = tr.querySelector('.job-strip');
-  strip.hidden = false;
-  strip.textContent = 'Starting…';
-
-  const findBtn = tr.querySelector('.btn-find');
+async function ingestAutofillForRow(row, identifier, source, extension) {
+  closeFindPane();
+  const tr = _findRowTr(row);
+  const strip = tr?.querySelector('.job-strip');
+  const findBtn = tr?.querySelector('.btn-find');
+  if (strip) { strip.hidden = false; strip.textContent = 'Starting…'; }
   if (findBtn) findBtn.disabled = true;
 
   try {
     const job = await api('/api/ingest/mpcautofill-card', {
       method: 'POST',
-      body: JSON.stringify({
-        name: row.name, identifier, source, extension, make_default: true,
-      }),
+      body: JSON.stringify({ name: row.name, identifier, source, extension, make_default: true }),
     });
     await pollRowJob(job.id, strip, findBtn);
   } catch (e) {
-    strip.textContent = '✕ ' + e.message;
+    if (strip) strip.textContent = '✕ ' + e.message;
     if (findBtn) findBtn.disabled = false;
   }
 }
 
-async function ingestForRow(row, setCode, collNum, findTr) {
-  const tr = findTr.previousElementSibling;
-  findTr.remove();
-
-  const strip = tr.querySelector('.job-strip');
-  strip.hidden = false;
-  strip.textContent = 'Starting…';
-
-  const findBtn = tr.querySelector('.btn-find');
+async function ingestForRow(row, setCode, collNum) {
+  closeFindPane();
+  const tr = _findRowTr(row);
+  const strip = tr?.querySelector('.job-strip');
+  const findBtn = tr?.querySelector('.btn-find');
+  if (strip) { strip.hidden = false; strip.textContent = 'Starting…'; }
   if (findBtn) findBtn.disabled = true;
 
   try {
@@ -340,7 +332,7 @@ async function ingestForRow(row, setCode, collNum, findTr) {
     });
     await pollRowJob(job.id, strip, findBtn);
   } catch (e) {
-    strip.textContent = '✕ ' + e.message;
+    if (strip) strip.textContent = '✕ ' + e.message;
     if (findBtn) findBtn.disabled = false;
   }
 }
