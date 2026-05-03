@@ -1075,6 +1075,9 @@ def api_parse_decklist():
         })
 
     # Collect tokens needed: aggregate from all non-missing cards in library
+    # but exclude any token the user already listed in the decklist itself.
+    decklist_slugs = {row["slug"] for row in rows}
+
     tokens_map: dict[str, list[str]] = {}   # token_name -> [producer names]
     for row in rows:
         if row["status"] == "missing":
@@ -1083,6 +1086,9 @@ def api_parse_decklist():
         if not card:
             continue
         for tok in card.related_tokens:
+            tok_slug = normalize_name(tok)
+            if tok_slug in decklist_slugs:
+                continue  # already in the decklist, don't flag it
             tokens_map.setdefault(tok, []).append(row["name"])
 
     tokens_needed = [
