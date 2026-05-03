@@ -761,6 +761,32 @@ body[data-page="build"] main {
   color: var(--ink-dim);
 }
 .find-title em { color: var(--gold-hi); font-style: normal; }
+.find-tabs {
+  display: flex; gap: 4px;
+}
+.find-tab {
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all .1s;
+}
+.find-tab:hover { border-color: var(--gold); color: var(--paper); }
+.find-tab.active {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--bg);
+  font-weight: 600;
+}
+.pref-badge {
+  color: var(--gold-hi);
+  font-size: 11px;
+  line-height: 1;
+}
 .btn-icon {
   background: none; border: none;
   color: var(--ink-dim); font-size: 20px;

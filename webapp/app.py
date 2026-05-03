@@ -383,6 +383,92 @@ def api_post_settings():
     return jsonify({"ok": True, "preferred_sources": lib.preferred_sources})
 
 
+@app.route("/api/mpcautofill/search")
+def api_mpcautofill_search():
+    """
+    Search MPC AutoFill for a single card name.
+    Results are ranked: preferred sources first (in order), then by API priority.
+    Each result includes preferredRank (0-based index, or null) so the UI can
+    badge preferred sources without needing to re-fetch settings separately.
+    """
+    name = request.args.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "name required"}), 400
+
+    lib = get_lib()
+    preferred = lib.preferred_sources
+    pref_index = {s.lower(): i for i, s in enumerate(preferred)}
+
+    try:
+        from mpcautofill import search_cards
+        results = search_cards([name], preferred_sources=preferred or None)
+        cards = results.get(name, [])
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    out = []
+    for c in cards:
+        src_lower = (c.get("source") or "").lower()
+        out.append({
+            "identifier":    c.get("identifier"),
+            "name":          c.get("name"),
+            "source":        c.get("source"),
+            "sourceName":    c.get("sourceName") or c.get("source"),
+            "sourceType":    c.get("sourceType"),
+            "dpi":           c.get("dpi"),
+            "extension":     (c.get("extension") or "jpg").lstrip("."),
+            "thumbnailUrl":  c.get("mediumThumbnailUrl") or c.get("smallThumbnailUrl"),
+            "preferredRank": pref_index.get(src_lower),   # None = not preferred
+        })
+
+    return jsonify({"results": out, "total": len(out)})
+
+
+@app.route("/api/ingest/mpcautofill-card", methods=["POST"])
+def api_ingest_mpcautofill_card():
+    """Ingest a specific card art from MPC AutoFill by Google Drive file ID."""
+    body = request.json or {}
+    name       = body.get("name")
+    identifier = body.get("identifier")
+    extension  = (body.get("extension") or "jpg").lstrip(".")
+    source     = body.get("source") or "unknown"
+    make_default = bool(body.get("make_default", True))
+
+    if not name or not identifier:
+        return jsonify({"error": "name and identifier required"}), 400
+
+    def run(job):
+        from download_drive import download_drive_file
+        from add_card import ingest_file
+
+        lib = get_lib()
+        staging = lib.root / ".upload_staging"
+        staging.mkdir(exist_ok=True)
+
+        tmp = staging / f"mpcautofill_{identifier}.{extension}"
+
+        job.update(f"Downloading {name}…")
+        download_drive_file(identifier, tmp)
+
+        job.update(f"Processing {name}…")
+        slug, pid = ingest_file(
+            lib, tmp, name,
+            tag=f"mpcautofill_{source}",
+            make_default=make_default,
+        )
+        lib.save()
+
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        return {"slug": slug, "printing_id": pid}
+
+    job = jobs.submit(f"Adding {name} (MPC AutoFill · {source})", run)
+    return jsonify(job.to_dict())
+
+
 @app.route("/api/mpcautofill/sources")
 def api_mpcautofill_sources():
     """Return available MPC AutoFill sources (cached 1 h)."""

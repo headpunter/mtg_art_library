@@ -181,7 +181,7 @@ function printingLabel(p) {
   return `${p.tag || p.id} · ${p.bleed}`;
 }
 
-/* ── find panel (inline Scryfall picker for missing cards) ───────── */
+/* ── find panel (MPC AutoFill + Scryfall picker for missing cards) ── */
 function toggleFindPanel(row, tr) {
   const existing = tr.nextElementSibling;
   if (existing && existing.classList.contains('find-row')) {
@@ -198,7 +198,11 @@ function toggleFindPanel(row, tr) {
   td.innerHTML =
     `<div class="find-panel">` +
       `<div class="find-header">` +
-        `<span class="find-title">Scryfall printings — <em>${escapeHtml(row.name)}</em></span>` +
+        `<span class="find-title"><em>${escapeHtml(row.name)}</em></span>` +
+        `<div class="find-tabs">` +
+          `<button class="find-tab active" data-tab="autofill">MPC AutoFill</button>` +
+          `<button class="find-tab" data-tab="scryfall">Scryfall</button>` +
+        `</div>` +
         `<button class="btn-icon close-find" title="Close">×</button>` +
       `</div>` +
       `<div class="find-results" id="find-res-${escapeHtml(row.slug)}">` +
@@ -207,13 +211,65 @@ function toggleFindPanel(row, tr) {
     `</div>`;
 
   td.querySelector('.close-find').addEventListener('click', () => findTr.remove());
+  td.querySelectorAll('.find-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      td.querySelectorAll('.find-tab').forEach(t => t.classList.toggle('active', t === tab));
+      loadFindResults(row, findTr, tab.dataset.tab);
+    });
+  });
+
   findTr.appendChild(td);
   tr.after(findTr);
-  loadFindResults(row, findTr);
+  loadFindResults(row, findTr, 'autofill');
 }
 
-async function loadFindResults(row, findTr) {
+async function loadFindResults(row, findTr, tab) {
   const container = findTr.querySelector('.find-results');
+  container.innerHTML = `<span class="hint-dim">Loading…</span>`;
+  if (tab === 'autofill') {
+    await loadAutofillResults(row, findTr, container);
+  } else {
+    await loadScryfallResults(row, findTr, container);
+  }
+}
+
+async function loadAutofillResults(row, findTr, container) {
+  try {
+    const r = await api(`/api/mpcautofill/search?name=${encodeURIComponent(row.name)}`);
+    if (r.error || !r.results?.length) {
+      container.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No art found on MPC AutoFill')}</span>`;
+      return;
+    }
+    container.innerHTML = r.results.map(p => {
+      const isPref = p.preferredRank !== null && p.preferredRank !== undefined;
+      return (
+        `<div class="find-pick autofill-pick"` +
+          ` data-identifier="${escapeHtml(p.identifier || '')}"` +
+          ` data-source="${escapeHtml(p.source || '')}"` +
+          ` data-extension="${escapeHtml(p.extension || 'jpg')}">` +
+          `<img src="${escapeHtml(p.thumbnailUrl || '')}" alt="" loading="lazy">` +
+          `<div class="find-pick-meta">` +
+            `<span class="fp-set">` +
+              (isPref ? `<span class="pref-badge">★</span> ` : '') +
+              escapeHtml(p.sourceName || p.source || '—') +
+            `</span>` +
+            `<span class="fp-num">${p.dpi ? p.dpi + ' DPI' : '—'}</span>` +
+          `</div>` +
+        `</div>`
+      );
+    }).join('');
+    container.querySelectorAll('.autofill-pick').forEach(el => {
+      el.addEventListener('click', () => {
+        ingestAutofillForRow(row, el.dataset.identifier, el.dataset.source,
+                             el.dataset.extension, findTr);
+      });
+    });
+  } catch (e) {
+    container.innerHTML = `<span class="hint-dim">Failed to reach MPC AutoFill</span>`;
+  }
+}
+
+async function loadScryfallResults(row, findTr, container) {
   try {
     const r = await api(`/api/scryfall/printings?name=${encodeURIComponent(row.name)}`);
     if (r.error || !r.top?.length) {
@@ -238,6 +294,31 @@ async function loadFindResults(row, findTr) {
     });
   } catch (e) {
     container.innerHTML = `<span class="hint-dim">Failed to load printings</span>`;
+  }
+}
+
+async function ingestAutofillForRow(row, identifier, source, extension, findTr) {
+  const tr = findTr.previousElementSibling;
+  findTr.remove();
+
+  const strip = tr.querySelector('.job-strip');
+  strip.hidden = false;
+  strip.textContent = 'Starting…';
+
+  const findBtn = tr.querySelector('.btn-find');
+  if (findBtn) findBtn.disabled = true;
+
+  try {
+    const job = await api('/api/ingest/mpcautofill-card', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: row.name, identifier, source, extension, make_default: true,
+      }),
+    });
+    await pollRowJob(job.id, strip, findBtn);
+  } catch (e) {
+    strip.textContent = '✕ ' + e.message;
+    if (findBtn) findBtn.disabled = false;
   }
 }
 
