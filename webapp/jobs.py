@@ -60,7 +60,10 @@ def submit(label: str, fn: Callable[["Job"], Any]) -> Job:
         except Exception as e:
             job.state = "failed"
             job.error = f"{type(e).__name__}: {e}"
-            traceback.print_exc()
+            try:
+                traceback.print_exc()
+            except Exception:
+                pass
         finally:
             job.finished = datetime.now()
 

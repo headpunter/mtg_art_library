@@ -11,8 +11,19 @@ This file currently implements the Library view (Half 1). Build view comes next.
 from __future__ import annotations
 
 import argparse
+import io
 import sys
 from io import BytesIO
+
+# On Windows the default stdout/stderr encoding is cp1252 which cannot encode
+# many Unicode characters that appear in MTG card text (e.g. → in oracle text).
+# Reconfigure both streams to UTF-8 so print() and traceback.print_exc() work.
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 from pathlib import Path
 
 from flask import (Flask, abort, jsonify, redirect, render_template,
