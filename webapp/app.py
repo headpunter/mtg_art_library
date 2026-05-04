@@ -34,7 +34,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
-from library import Library, Printing, normalize_name, normalize_printing_id  # noqa: E402
+from library import Library, Printing, SavedDeck, normalize_name, normalize_printing_id  # noqa: E402
 import scryfall  # noqa: E402
 from add_card import ingest_scryfall, ingest_file  # noqa: E402
 
@@ -1284,6 +1284,77 @@ def api_cardbacks_set_default(key: str):
 @app.route("/cardbacks")
 def page_cardbacks():
     return render_template("cardbacks.html")
+
+
+# ---------- saved decklists ----------
+
+@app.route("/api/decklists", methods=["GET"])
+def api_decklists_list():
+    lib = get_lib()
+    return jsonify({"decklists": [
+        {"key": k, "name": d.name, "added": d.added}
+        for k, d in lib.decklists.items()
+    ]})
+
+
+@app.route("/api/decklists", methods=["POST"])
+def api_decklists_create():
+    import datetime as _datetime
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    text = (data.get("text") or "").strip()
+    if not name:
+        return jsonify({"error": "name required"}), 400
+    if not text:
+        return jsonify({"error": "text required"}), 400
+    lib = get_lib()
+    key = normalize_name(name) or "deck"
+    # append suffix to avoid clobbering a different deck with same slug
+    if key in lib.decklists and lib.decklists[key].name != name:
+        i = 2
+        while f"{key}_{i}" in lib.decklists:
+            i += 1
+        key = f"{key}_{i}"
+    deck = SavedDeck(
+        name=name, text=text,
+        added=_datetime.datetime.utcnow().strftime("%Y-%m-%d"),
+    )
+    lib.decklists[key] = deck
+    lib.save()
+    return jsonify({"key": key, "name": name, "added": deck.added})
+
+
+@app.route("/api/decklists/<key>", methods=["GET"])
+def api_decklists_get(key: str):
+    lib = get_lib()
+    if key not in lib.decklists:
+        return jsonify({"error": "not found"}), 404
+    d = lib.decklists[key]
+    return jsonify({"key": key, "name": d.name, "text": d.text, "added": d.added})
+
+
+@app.route("/api/decklists/<key>", methods=["PUT"])
+def api_decklists_update(key: str):
+    lib = get_lib()
+    if key not in lib.decklists:
+        return jsonify({"error": "not found"}), 404
+    data = request.get_json(silent=True) or {}
+    if "name" in data:
+        lib.decklists[key].name = (data["name"] or "").strip() or lib.decklists[key].name
+    if "text" in data:
+        lib.decklists[key].text = data["text"]
+    lib.save()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/decklists/<key>", methods=["DELETE"])
+def api_decklists_delete(key: str):
+    lib = get_lib()
+    if key not in lib.decklists:
+        return jsonify({"error": "not found"}), 404
+    lib.decklists.pop(key)
+    lib.save()
+    return jsonify({"ok": True})
 
 
 # ---------- entry point ----------

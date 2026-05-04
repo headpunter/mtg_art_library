@@ -36,8 +36,19 @@ const findPaneTitle  = document.getElementById('findPaneTitle');
 const findPaneTabs   = document.getElementById('findPaneTabs');
 const findPaneResults = document.getElementById('findPaneResults');
 const findPaneClose  = document.getElementById('findPaneClose');
+const viewToggle     = document.getElementById('viewToggle');
+const artGridWrap    = document.getElementById('artGridWrap');
+const artGrid        = document.getElementById('artGrid');
+const printPickPane  = document.getElementById('printPickPane');
+const printPickTitle = document.getElementById('printPickTitle');
+const printPickBody  = document.getElementById('printPickBody');
+const printPickClose = document.getElementById('printPickClose');
+const deckNameInput  = document.getElementById('deckNameInput');
+const btnSaveDeck    = document.getElementById('btnSaveDeck');
+const savedDecksList = document.getElementById('savedDecksList');
 
 let _findRow = null;   // the deck row currently open in the find pane
+let _activeView = 'table';   // 'table' | 'art'
 
 /* ── init ────────────────────────────────────────────────────────── */
 {
@@ -59,6 +70,15 @@ let _findRow = null;   // the deck row currently open in the find pane
   btnFetchMissing.addEventListener('click', fetchMissingFromAutofill);
 
   findPaneClose.addEventListener('click', closeFindPane);
+  printPickClose.addEventListener('click', closePrintPicker);
+  viewToggle.addEventListener('click', e => {
+    const btn = e.target.closest('.view-btn');
+    if (!btn) return;
+    viewToggle.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b === btn));
+    setView(btn.dataset.view);
+  });
+  btnSaveDeck.addEventListener('click', saveDeck);
+  loadSavedDecks();
   findPaneTabs.addEventListener('click', e => {
     const tab = e.target.closest('.find-tab');
     if (!tab || !_findRow) return;
@@ -131,8 +151,10 @@ async function parseDeck() {
 function clearTable() {
   buildEmpty.hidden = false;
   buildTableWrap.hidden = true;
+  artGridWrap.hidden = true;
   buildFooter.hidden = true;
   tokensPanel.hidden = true;
+  viewToggle.hidden = true;
   parsedRows = [];
   updateStats({ unique: 0, ok: 0, pick: 0, missing: 0, total_qty: 0 });
 }
@@ -140,18 +162,44 @@ function clearTable() {
 function renderTable(rows) {
   if (!rows.length) { clearTable(); return; }
   buildEmpty.hidden = true;
-  buildTableWrap.hidden = false;
+  viewToggle.hidden = false;
   buildFooter.hidden = false;
 
-  deckBody.innerHTML = '';
   for (const row of rows) {
     if (!selections[row.slug] || !row.printings.find(p => p.id === selections[row.slug])) {
       selections[row.slug] = row.selected;
     }
-    deckBody.appendChild(buildRow(row));
+  }
+
+  if (_activeView === 'art') {
+    buildTableWrap.hidden = true;
+    artGridWrap.hidden = false;
+    renderArtGrid(rows);
+  } else {
+    buildTableWrap.hidden = false;
+    artGridWrap.hidden = true;
+    deckBody.innerHTML = '';
+    for (const row of rows) deckBody.appendChild(buildRow(row));
   }
   updateSummary();
   updateBuildButton();
+}
+
+function setView(view) {
+  _activeView = view;
+  if (!parsedRows.length) return;
+  closePrintPicker();
+  closeFindPane();
+  if (view === 'art') {
+    buildTableWrap.hidden = true;
+    artGridWrap.hidden = false;
+    renderArtGrid(parsedRows);
+  } else {
+    artGridWrap.hidden = true;
+    buildTableWrap.hidden = false;
+    deckBody.innerHTML = '';
+    for (const row of parsedRows) deckBody.appendChild(buildRow(row));
+  }
 }
 
 function buildRow(row) {
@@ -783,5 +831,200 @@ async function pollBuildJob(jid, chip) {
       btnBuild.textContent = 'Build →';
       return;
     }
+  }
+}
+
+/* ── art grid view ────────────────────────────────────────────────── */
+
+function renderArtGrid(rows) {
+  artGrid.innerHTML = '';
+  for (const row of rows) {
+    artGrid.appendChild(buildArtCard(row));
+  }
+}
+
+function buildArtCard(row) {
+  const pid = selections[row.slug] || row.selected;
+  const printing = row.printings.find(p => p.id === pid) || row.printings[0];
+  const hasArt = row.status !== 'missing' && printing;
+
+  const div = document.createElement('div');
+  div.className = `art-card art-card-${row.status}`;
+  div.dataset.slug = row.slug;
+
+  const thumbHtml = hasArt
+    ? `<img src="/thumb/${encodeURIComponent(row.slug)}/${encodeURIComponent(pid)}" alt="" loading="lazy">`
+    : `<div class="art-card-placeholder"><span>not in library</span></div>`;
+
+  const printCount = row.printings.length;
+  const countLabel = printCount > 1 ? `${printCount} printings` : printing
+    ? (printing.set ? `${printing.set.toUpperCase()} #${printing.collector_number || ''}` : (printing.tag || ''))
+    : '';
+
+  div.innerHTML =
+    `<div class="art-card-thumb">${thumbHtml}</div>` +
+    `<div class="art-card-footer">` +
+      `<span class="art-card-qty">${row.qty}×</span>` +
+      `<span class="art-card-name">${escapeHtml(row.name)}</span>` +
+      (countLabel ? `<span class="art-card-sub">${escapeHtml(countLabel)}</span>` : '') +
+    `</div>`;
+
+  div.addEventListener('click', () => openPrintPicker(row));
+  return div;
+}
+
+/* ── printing picker panel ────────────────────────────────────────── */
+
+let _pickerRow = null;
+
+function openPrintPicker(row) {
+  if (_pickerRow && _pickerRow.slug === row.slug) {
+    closePrintPicker();
+    return;
+  }
+  _pickerRow = row;
+  printPickTitle.innerHTML = `<em>${escapeHtml(row.name)}</em>`;
+  printPickPane.hidden = false;
+  renderPrintPickBody(row);
+}
+
+function closePrintPicker() {
+  _pickerRow = null;
+  printPickPane.hidden = true;
+}
+
+function renderPrintPickBody(row) {
+  if (row.status === 'missing' || !row.printings.length) {
+    printPickBody.innerHTML =
+      `<div class="pick-empty">` +
+        `<p>No printings in your library for <em>${escapeHtml(row.name)}</em>.</p>` +
+        `<button class="btn btn-find" id="ppFindBtn">Find art →</button>` +
+      `</div>`;
+    printPickBody.querySelector('#ppFindBtn').addEventListener('click', () => {
+      closePrintPicker();
+      setView('table');
+      viewToggle.querySelectorAll('.view-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.view === 'table')
+      );
+      // open the find panel for this row via the table
+      setTimeout(() => {
+        const tr = deckBody.querySelector(`tr[data-slug="${CSS.escape(row.slug)}"]`);
+        const btn = tr?.querySelector('.btn-find');
+        btn?.click();
+      }, 50);
+    });
+    return;
+  }
+
+  const currentPid = selections[row.slug] || row.selected;
+  printPickBody.innerHTML = row.printings.map(p => {
+    const isSelected = p.id === currentPid;
+    const label = p.set && p.collector_number
+      ? `${p.set.toUpperCase()} #${p.collector_number}`
+      : (p.tag || p.id);
+    return (
+      `<div class="pick-row ${isSelected ? 'pick-row-selected' : ''}" data-pid="${escapeHtml(p.id)}">` +
+        `<div class="pick-thumb">` +
+          `<img src="/thumb/${encodeURIComponent(row.slug)}/${encodeURIComponent(p.id)}" alt="" loading="lazy">` +
+        `</div>` +
+        `<div class="pick-meta">` +
+          `<span class="pick-label">${escapeHtml(label)}</span>` +
+          `<span class="pick-detail">${escapeHtml(p.source)}${p.tag ? ' · ' + p.tag : ''}</span>` +
+          `<span class="pick-detail">bleed: ${escapeHtml(p.bleed || '—')} · added ${escapeHtml(p.added || '—')}</span>` +
+        `</div>` +
+        `<div class="pick-action">` +
+          (isSelected
+            ? `<span class="pick-selected-badge">✓ selected</span>`
+            : `<button class="btn" data-pid="${escapeHtml(p.id)}">Use this</button>`) +
+        `</div>` +
+      `</div>`
+    );
+  }).join('');
+
+  printPickBody.querySelectorAll('.btn[data-pid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = btn.dataset.pid;
+      selections[row.slug] = pid;
+      // refresh art grid tile and picker
+      const tile = artGrid.querySelector(`.art-card[data-slug="${CSS.escape(row.slug)}"]`);
+      if (tile) tile.replaceWith(buildArtCard(row));
+      renderPrintPickBody(row);
+      updateSummary();
+    });
+  });
+}
+
+/* ── saved decklists ──────────────────────────────────────────────── */
+
+async function loadSavedDecks() {
+  try {
+    const data = await api('/api/decklists');
+    renderSavedDecks(data.decklists || []);
+  } catch (e) {
+    console.error('Failed to load saved decklists', e);
+  }
+}
+
+function renderSavedDecks(decklists) {
+  if (!decklists.length) {
+    savedDecksList.innerHTML = '<span class="dim" style="font-size:12px">No saved decklists yet.</span>';
+    return;
+  }
+  savedDecksList.innerHTML = decklists.map(d =>
+    `<div class="saved-deck-item" data-key="${escapeHtml(d.key)}">` +
+      `<button class="saved-deck-load" data-key="${escapeHtml(d.key)}" title="Load this deck">${escapeHtml(d.name)}</button>` +
+      `<span class="saved-deck-date dim">${escapeHtml(d.added || '')}</span>` +
+      `<button class="saved-deck-del btn-icon" data-key="${escapeHtml(d.key)}" title="Delete">×</button>` +
+    `</div>`
+  ).join('');
+
+  savedDecksList.querySelectorAll('.saved-deck-load').forEach(btn => {
+    btn.addEventListener('click', () => loadDeck(btn.dataset.key));
+  });
+  savedDecksList.querySelectorAll('.saved-deck-del').forEach(btn => {
+    btn.addEventListener('click', () => deleteDeck(btn.dataset.key));
+  });
+}
+
+async function saveDeck() {
+  const name = deckNameInput.value.trim();
+  const text = deckInput.value.trim();
+  if (!name) { deckNameInput.focus(); return; }
+  if (!text) { alert('Paste a decklist first.'); return; }
+
+  btnSaveDeck.disabled = true;
+  try {
+    await api('/api/decklists', {
+      method: 'POST',
+      body: JSON.stringify({ name, text }),
+    });
+    deckNameInput.value = '';
+    await loadSavedDecks();
+  } catch (e) {
+    alert('Failed to save: ' + e.message);
+  } finally {
+    btnSaveDeck.disabled = false;
+  }
+}
+
+async function loadDeck(key) {
+  try {
+    const data = await api(`/api/decklists/${encodeURIComponent(key)}`);
+    deckInput.value = data.text;
+    localStorage.setItem('build_decklist', data.text);
+    deckNameInput.value = data.name;
+    await parseDeck();
+  } catch (e) {
+    alert('Failed to load deck: ' + e.message);
+  }
+}
+
+async function deleteDeck(key) {
+  if (!confirm('Delete this saved decklist?')) return;
+  try {
+    await api(`/api/decklists/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    await loadSavedDecks();
+  } catch (e) {
+    alert('Failed to delete: ' + e.message);
   }
 }

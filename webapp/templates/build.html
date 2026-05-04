@@ -59,6 +59,17 @@
       <code>1 Sol Ring (cmm) 366</code>
       <code>// comments skipped</code>
     </div>
+
+    <hr class="aside-rule">
+
+    <p class="section-label">Saved decklists</p>
+    <div class="save-deck-row">
+      <input type="text" id="deckNameInput" placeholder="Name this deck…" class="text-input" autocomplete="off">
+      <button class="btn" id="btnSaveDeck">Save</button>
+    </div>
+    <div class="saved-decks-list" id="savedDecksList">
+      <span class="dim" style="font-size:12px">No saved decklists yet.</span>
+    </div>
   </aside>
 
   <!-- ── right: parsed table ──────────────────────────────────────── -->
@@ -84,6 +95,11 @@
       <p>Paste a decklist and hit <em>Parse</em></p>
     </div>
 
+    <div class="view-toggle" id="viewToggle" hidden>
+      <button class="view-btn active" data-view="table">≡ Table</button>
+      <button class="view-btn" data-view="art">⬚ Art</button>
+    </div>
+
     <div class="build-table-wrap" id="buildTableWrap" hidden>
       <table class="deck-table">
         <thead>
@@ -96,6 +112,20 @@
         </thead>
         <tbody id="deckBody"></tbody>
       </table>
+    </div>
+
+    <!-- art grid (alternate view) -->
+    <div class="art-grid-wrap" id="artGridWrap" hidden>
+      <div class="art-grid" id="artGrid"></div>
+    </div>
+
+    <!-- printing picker (opens when clicking a card in art view) -->
+    <div class="print-pick-pane" id="printPickPane" hidden>
+      <div class="print-pick-head">
+        <span class="print-pick-title" id="printPickTitle">—</span>
+        <button class="btn-icon" id="printPickClose">×</button>
+      </div>
+      <div class="print-pick-body" id="printPickBody"></div>
     </div>
 
     <!-- tokens panel -->

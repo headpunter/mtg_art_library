@@ -193,6 +193,20 @@ class Cardback:
 
 
 @dataclass
+class SavedDeck:
+    name: str
+    text: str
+    added: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"name": self.name, "text": self.text, "added": self.added}
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "SavedDeck":
+        return cls(name=d["name"], text=d["text"], added=d.get("added", ""))
+
+
+@dataclass
 class Card:
     name: str                              # display name "Sol Ring"
     default: str | None = None             # default printing_id
@@ -230,6 +244,7 @@ class Library:
     cards: dict[str, Card] = field(default_factory=dict)
     cardbacks: dict[str, Cardback] = field(default_factory=dict)  # key -> Cardback
     default_cardback: str | None = None
+    decklists: dict[str, SavedDeck] = field(default_factory=dict)  # key -> SavedDeck
 
     @classmethod
     def load(cls, root: Path | None = None) -> "Library":
@@ -248,6 +263,7 @@ class Library:
             cards={k: Card.from_dict(v) for k, v in data.get("cards", {}).items()},
             cardbacks={k: Cardback.from_dict(v) for k, v in data.get("cardbacks", {}).items()},
             default_cardback=data.get("default_cardback"),
+            decklists={k: SavedDeck.from_dict(v) for k, v in data.get("decklists", {}).items()},
         )
 
     def save(self) -> None:
@@ -267,6 +283,8 @@ class Library:
             data["cardbacks"] = {k: v.to_dict() for k, v in self.cardbacks.items()}
         if self.default_cardback:
             data["default_cardback"] = self.default_cardback
+        if self.decklists:
+            data["decklists"] = {k: v.to_dict() for k, v in self.decklists.items()}
         data["cards"] = {k: v.to_dict() for k, v in sorted(self.cards.items())}
         index_path(self.root).write_text(
             json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

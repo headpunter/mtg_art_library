@@ -1820,6 +1820,296 @@ body[data-page="library"] main { padding: 0; }
   border-top: 1px solid var(--rule);
 }
 
+/* ── saved decklists (build aside) ──────────────────────────────────── */
+.aside-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 4px 0;
+}
+
+.save-deck-row {
+  display: flex;
+  gap: 6px;
+}
+
+.text-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--rule-2);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color .15s;
+}
+.text-input:focus { border-color: var(--gold); }
+.text-input::placeholder { color: var(--ink-faint); }
+
+.saved-decks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saved-deck-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.saved-deck-load {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: var(--gold-hi);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+}
+.saved-deck-load:hover { color: var(--paper); }
+
+.saved-deck-date {
+  font-family: var(--mono);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.saved-deck-del {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.saved-deck-del:hover { color: var(--red); }
+
+/* ── view toggle (table / art) ───────────────────────────────────────── */
+.view-toggle {
+  display: flex;
+  gap: 0;
+  padding: 8px 14px 0;
+  flex-shrink: 0;
+}
+.view-toggle[hidden] { display: none; }
+
+.view-btn {
+  background: var(--bg-3);
+  border: 1px solid var(--rule);
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: color .12s, background .12s;
+}
+.view-btn + .view-btn { border-left: none; }
+.view-btn:hover { color: var(--paper); }
+.view-btn.active {
+  background: var(--bg-2);
+  color: var(--gold-hi);
+  border-color: var(--rule-2);
+}
+
+/* ── art grid ────────────────────────────────────────────────────────── */
+.art-grid-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+}
+.art-grid-wrap[hidden] { display: none; }
+
+.art-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.art-card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 2px;
+  transition: border-color .12s, transform .1s;
+}
+.art-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+.art-card.art-card-missing { opacity: .6; }
+.art-card.art-card-missing:hover { border-color: var(--red); }
+
+.art-card-thumb {
+  width: 100%;
+  aspect-ratio: 745 / 1040;
+  background: var(--bg-3);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.art-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.art-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.art-card-placeholder span {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  text-align: center;
+  padding: 8px;
+  line-height: 1.4;
+}
+
+.art-card-footer {
+  padding: 5px 4px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.art-card-qty {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+}
+.art-card-name {
+  font-family: var(--serif);
+  font-size: 11px;
+  color: var(--paper);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.art-card-sub {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── printing picker panel ───────────────────────────────────────────── */
+.print-pick-pane {
+  flex-shrink: 0;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid var(--gold);
+  background: var(--bg-2);
+}
+.print-pick-pane[hidden] { display: none; }
+
+.print-pick-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+.print-pick-title {
+  flex: 1;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--paper);
+}
+
+.print-pick-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: var(--bg-3);
+  border: 1px solid var(--rule);
+  cursor: pointer;
+  transition: border-color .12s;
+}
+.pick-row:hover { border-color: var(--rule-2); }
+.pick-row-selected { border-color: var(--gold) !important; }
+
+.pick-thumb {
+  flex-shrink: 0;
+  width: 52px;
+}
+.pick-thumb img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 745 / 1040;
+  object-fit: cover;
+  display: block;
+}
+
+.pick-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pick-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--paper);
+}
+.pick-detail {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+}
+
+.pick-action { flex-shrink: 0; }
+
+.pick-selected-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold-hi);
+  letter-spacing: .05em;
+}
+
+.pick-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--ink-dim);
+  font-family: var(--serif);
+  font-style: italic;
+}
+.pick-empty p { margin: 0 0 12px; }
+
 /* ── responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   .topbar { padding: 12px 16px; }
