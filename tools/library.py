@@ -239,8 +239,6 @@ class Library:
     canonical_dpi: int = CANONICAL_DPI
     canonical_size: tuple[int, int] = (CANONICAL_W, CANONICAL_H)
     default_bleed: str = "mirror"
-    preferred_sources: list[str] = field(default_factory=list)
-    autofill_url: str = ""
     cards: dict[str, Card] = field(default_factory=dict)
     cardbacks: dict[str, Cardback] = field(default_factory=dict)  # key -> Cardback
     default_cardback: str | None = None
@@ -258,8 +256,6 @@ class Library:
             canonical_dpi=data.get("canonical_dpi", CANONICAL_DPI),
             canonical_size=tuple(data.get("canonical_size", [CANONICAL_W, CANONICAL_H])),
             default_bleed=data.get("default_bleed", "mirror"),
-            preferred_sources=data.get("preferred_sources", []),
-            autofill_url=data.get("autofill_url", ""),
             cards={k: Card.from_dict(v) for k, v in data.get("cards", {}).items()},
             cardbacks={k: Cardback.from_dict(v) for k, v in data.get("cardbacks", {}).items()},
             default_cardback=data.get("default_cardback"),
@@ -275,10 +271,7 @@ class Library:
             "canonical_dpi": self.canonical_dpi,
             "canonical_size": list(self.canonical_size),
             "default_bleed": self.default_bleed,
-            "preferred_sources": self.preferred_sources,
         }
-        if self.autofill_url:
-            data["autofill_url"] = self.autofill_url
         if self.cardbacks:
             data["cardbacks"] = {k: v.to_dict() for k, v in self.cardbacks.items()}
         if self.default_cardback:

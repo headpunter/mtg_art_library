@@ -17,8 +17,6 @@ const xmlArtFileInput = document.getElementById('xmlArtFileInput');
 const ingestNote     = document.getElementById('ingestNote');
 const btnFetchPinned  = document.getElementById('btnFetchPinned');
 const fetchPinnedNote = document.getElementById('fetchPinnedNote');
-const btnFetchMissing = document.getElementById('btnFetchMissing');
-const fetchNote      = document.getElementById('fetchNote');
 const btnBuild       = document.getElementById('btnBuild');
 const buildEmpty     = document.getElementById('buildEmpty');
 const buildTableWrap = document.getElementById('buildTableWrap');
@@ -33,7 +31,6 @@ const tokensList     = document.getElementById('tokensList');
 const tokensHint     = document.getElementById('tokensHint');
 const findPane       = document.getElementById('findPane');
 const findPaneTitle  = document.getElementById('findPaneTitle');
-const findPaneTabs   = document.getElementById('findPaneTabs');
 const findPaneResults = document.getElementById('findPaneResults');
 const findPaneClose  = document.getElementById('findPaneClose');
 const viewToggle     = document.getElementById('viewToggle');
@@ -67,7 +64,6 @@ let _activeView = 'table';   // 'table' | 'art'
   btnIngestXml.addEventListener('click', () => xmlArtFileInput.click());
   xmlArtFileInput.addEventListener('change', ingestArtFromXml);
   btnFetchPinned.addEventListener('click', fetchPinnedPrintings);
-  btnFetchMissing.addEventListener('click', fetchMissingFromAutofill);
 
   findPaneClose.addEventListener('click', closeFindPane);
   printPickClose.addEventListener('click', closePrintPicker);
@@ -79,16 +75,6 @@ let _activeView = 'table';   // 'table' | 'art'
   });
   btnSaveDeck.addEventListener('click', saveDeck);
   loadSavedDecks();
-  findPaneTabs.addEventListener('click', e => {
-    const tab = e.target.closest('.find-tab');
-    if (!tab || !_findRow) return;
-    findPaneTabs.querySelectorAll('.find-tab').forEach(t => t.classList.toggle('active', t === tab));
-    if (_findRow._isToken) {
-      loadTokenResults(_findRow.name);
-    } else {
-      loadFindResults(_findRow, tab.dataset.tab);
-    }
-  });
 
   formatSeg.addEventListener('click', e => {
     const btn = e.target.closest('.fmt-btn');
@@ -311,7 +297,6 @@ function renderTokens(tokens) {
 function openTokenFinder(tokenName) {
   _findRow = { slug: `__token__${tokenName}`, name: tokenName, _isToken: true };
   findPaneTitle.innerHTML = `Token: <em>${escapeHtml(tokenName)}</em>`;
-  findPaneTabs.querySelectorAll('.find-tab').forEach((t, i) => t.classList.toggle('active', i === 1));
   findPane.hidden = false;
   findPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   loadTokenResults(tokenName);
@@ -357,60 +342,14 @@ function toggleFindPanel(row, tr) {
   }
   _findRow = row;
   findPaneTitle.innerHTML = `<em>${escapeHtml(row.name)}</em>`;
-  findPaneTabs.querySelectorAll('.find-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
   findPane.hidden = false;
   findPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  loadFindResults(row, 'scryfall');
+  loadFindResults(row);
 }
 
-async function loadFindResults(row, tab) {
+async function loadFindResults(row) {
   findPaneResults.innerHTML = `<span class="hint-dim">Loading…</span>`;
-  if (tab === 'autofill') {
-    await loadAutofillResults(row);
-  } else {
-    await loadScryfallResults(row);
-  }
-}
-
-async function loadAutofillResults(row, findTr, container) {
-  try {
-    const r = await api(`/api/mpcautofill/search?name=${encodeURIComponent(row.name)}`);
-    if (r.unconfigured) {
-      findPaneResults.innerHTML =
-        `<span class="hint-dim">MPC AutoFill backend not configured. ` +
-        `Add a backend URL in <a href="/settings" style="color:var(--gold-hi)">Settings</a>.</span>`;
-      return;
-    }
-    if (r.error || !r.results?.length) {
-      findPaneResults.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No art found on MPC AutoFill')}</span>`;
-      return;
-    }
-    findPaneResults.innerHTML = r.results.map(p => {
-      const isPref = p.preferredRank !== null && p.preferredRank !== undefined;
-      return (
-        `<div class="find-pick autofill-pick"` +
-          ` data-identifier="${escapeHtml(p.identifier || '')}"` +
-          ` data-source="${escapeHtml(p.source || '')}"` +
-          ` data-extension="${escapeHtml(p.extension || 'jpg')}">` +
-          `<img src="${escapeHtml(p.thumbnailUrl || '')}" alt="" loading="lazy">` +
-          `<div class="find-pick-meta">` +
-            `<span class="fp-set">` +
-              (isPref ? `<span class="pref-badge">★</span> ` : '') +
-              escapeHtml(p.sourceName || p.source || '—') +
-            `</span>` +
-            `<span class="fp-num">${p.dpi ? p.dpi + ' DPI' : '—'}</span>` +
-          `</div>` +
-        `</div>`
-      );
-    }).join('');
-    findPaneResults.querySelectorAll('.autofill-pick').forEach(el => {
-      el.addEventListener('click', () => {
-        ingestAutofillForRow(row, el.dataset.identifier, el.dataset.source, el.dataset.extension);
-      });
-    });
-  } catch (e) {
-    findPaneResults.innerHTML = `<span class="hint-dim">Failed to reach MPC AutoFill backend</span>`;
-  }
+  await loadScryfallResults(row);
 }
 
 async function loadScryfallResults(row) {
@@ -443,26 +382,6 @@ async function loadScryfallResults(row) {
 
 function _findRowTr(row) {
   return deckBody.querySelector(`tr[data-slug="${CSS.escape(row.slug)}"]`);
-}
-
-async function ingestAutofillForRow(row, identifier, source, extension) {
-  closeFindPane();
-  const tr = _findRowTr(row);
-  const strip = tr?.querySelector('.job-strip');
-  const findBtn = tr?.querySelector('.btn-find');
-  if (strip) { strip.hidden = false; strip.textContent = 'Starting…'; }
-  if (findBtn) findBtn.disabled = true;
-
-  try {
-    const job = await api('/api/ingest/mpcautofill-card', {
-      method: 'POST',
-      body: JSON.stringify({ name: row.name, identifier, source, extension, make_default: true }),
-    });
-    await pollRowJob(job.id, strip, findBtn);
-  } catch (e) {
-    if (strip) strip.textContent = '✕ ' + e.message;
-    if (findBtn) findBtn.disabled = false;
-  }
 }
 
 async function ingestForRow(row, setCode, collNum) {
@@ -536,9 +455,6 @@ function updateBuildButton() {
   );
   btnFetchPinned.hidden = pinned.length === 0;
   btnFetchPinned.textContent = `Auto-fetch ${pinned.length} pinned from Scryfall`;
-
-  btnFetchMissing.hidden = missing === 0;
-  btnFetchMissing.textContent = `Fetch ${missing} missing from MPC AutoFill`;
 }
 
 /* ── build ───────────────────────────────────────────────────────── */
@@ -635,64 +551,6 @@ async function pollPinnedJob(jid, total) {
   }
 }
 
-/* ── MPC AutoFill bulk ingest ────────────────────────────────────── */
-
-async function fetchMissingFromAutofill() {
-  const missingRows = parsedRows.filter(r => r.status === 'missing');
-  if (!missingRows.length) return;
-
-  btnFetchMissing.disabled = true;
-  fetchNote.hidden = false;
-  fetchNote.style.color = '';
-  fetchNote.textContent = `Querying MPC AutoFill for ${missingRows.length} cards…`;
-
-  const names = missingRows.map(r => r.name);
-
-  try {
-    const job = await api('/api/ingest/mpcautofill-bulk', {
-      method: 'POST',
-      body: JSON.stringify({ names, make_default: true }),
-    });
-    await pollFetchJob(job.id);
-  } catch (e) {
-    fetchNote.textContent = '✕ ' + e.message;
-    fetchNote.style.color = 'var(--red)';
-    btnFetchMissing.disabled = false;
-  }
-}
-
-async function pollFetchJob(jid) {
-  while (true) {
-    await new Promise(r => setTimeout(r, 1500));
-    const j = await api(`/api/job/${jid}`).catch(() => null);
-    if (!j) return;
-
-    fetchNote.textContent = j.progress || j.state;
-
-    if (j.state === 'done') {
-      const r = j.result || {};
-      const ok      = (r.ok      || []).length;
-      const missing = (r.missing || []).length;
-      const failed  = (r.failed  || []).length;
-
-      let msg = `✓ ${ok} added`;
-      if (missing) msg += ` · ${missing} not found on MPC AutoFill`;
-      if (failed)  msg += ` · ${failed} failed`;
-      fetchNote.textContent = msg;
-
-      btnFetchMissing.disabled = false;
-      if (ok > 0) setTimeout(() => parseDeck(), 800);
-      return;
-    }
-
-    if (j.state === 'failed') {
-      fetchNote.textContent = '✕ ' + (j.error || 'Ingest failed');
-      fetchNote.style.color = 'var(--red)';
-      btnFetchMissing.disabled = false;
-      return;
-    }
-  }
-}
 
 /* ── MPCFill XML import ──────────────────────────────────────────── */
 
