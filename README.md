@@ -22,7 +22,11 @@ PDFs from any decklist using your library art.
     ├── scryfall.py            # Scryfall API wrapper
     ├── upscaler.py            # realesrgan-ncnn-vulkan wrapper
     ├── decklist.py            # decklist parsing
-    └── add_card.py            # ingestion CLI
+    ├── add_card.py            # ingestion CLI
+    ├── library_inspect.py     # audit: missing files, orphans, duplicates, size check
+    ├── build_mpc.py           # decklist + library → zip of MPC-ready PNGs
+    ├── build_autofill_xml.py  # decklist + library → MPC AutoFill XML
+    └── build_pdf.py           # decklist + library → 9-up PDF for home printing
 ```
 
 Every file in `art/` is at the canonical size (2192×2992, 800 DPI, with
@@ -100,9 +104,13 @@ after each card so you can interrupt and resume.
 
 For mostly-anime/illustration art, set `REALESRGAN_MODEL=realesrgan-x4plus-anime`.
 
-## What's coming next
+### Inspect / audit the library
 
-- `build_mpc.py` — decklist → folder of MPC-ready PNGs to upload
-- `build_mpcfill_xml.py` — decklist → XML manifest for MPC Autofill
-- `build_pdf.py` — decklist → 9-up PDF for at-home printing
-- `library_inspect.py` — show what's in the library, find duplicates, etc.
+```
+python tools/library_inspect.py               # summary (cards, printings, disk usage)
+python tools/library_inspect.py --missing     # printings with no art file on disk
+python tools/library_inspect.py --orphans     # art files not referenced by the index
+python tools/library_inspect.py --duplicates  # duplicate Scryfall IDs across printings
+python tools/library_inspect.py --sizes       # files not at canonical dimensions
+python tools/library_inspect.py --all         # run all checks; exits non-zero if issues found
+```
