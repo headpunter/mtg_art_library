@@ -47,6 +47,22 @@ const savedDecksList = document.getElementById('savedDecksList');
 let _findRow = null;   // the deck row currently open in the find pane
 let _activeView = 'table';   // 'table' | 'art'
 
+/* ── null element check ──────────────────────────────────────────── */
+{
+  const _required = {
+    deckInput, btnParse, btnImportXml, xmlFileInput, importNote,
+    btnIngestXml, xmlArtFileInput, ingestNote, btnFetchPinned, fetchPinnedNote,
+    btnBuild, buildEmpty, buildTableWrap, deckBody, buildFooter, footerSummary,
+    formatSeg, pdfLayoutSel, cardbackSel, tokensPanel, tokensList, tokensHint,
+    findPane, findPaneTitle, findPaneResults, findPaneClose,
+    viewToggle, artGridWrap, artGrid,
+    printPickPane, printPickTitle, printPickBody, printPickClose,
+    deckNameInput, btnSaveDeck, savedDecksList,
+  };
+  const _missing = Object.entries(_required).filter(([, v]) => !v).map(([k]) => k);
+  if (_missing.length) console.error('build.js: null elements:', _missing);
+}
+
 /* ── parse (debounced) ───────────────────────────────────────────── */
 let parseTimer = null;
 
@@ -128,7 +144,8 @@ async function parseDeck() {
   } catch (e) {
     console.error('parse error', e);
     buildEmpty.hidden = false;
-    buildEmpty.querySelector('p').textContent = '✕ ' + e.message;
+    const _line = (e.stack || '').match(/build\.js:(\d+)/)?.[1];
+    buildEmpty.querySelector('p').textContent = '✕ ' + e.message + (_line ? ` [build.js:${_line}]` : '');
   } finally {
     btnParse.disabled = false;
     btnParse.textContent = 'Parse';
