@@ -1842,6 +1842,34 @@ body[data-page="library"] main { padding: 0; }
 }
 .pick-empty p { margin: 0 0 12px; }
 
+/* ── back to top ─────────────────────────────────────────────────────── */
+.back-to-top {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 100;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--rule-2);
+  background: var(--bg-2);
+  color: var(--gold-hi);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-1);
+  transition: background .12s, border-color .12s, color .12s;
+}
+.back-to-top:hover {
+  background: var(--bg-3);
+  border-color: var(--gold);
+  color: var(--paper);
+}
+.back-to-top[hidden] { display: none; }
+
 /* ── responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   .topbar { padding: 12px 16px; }

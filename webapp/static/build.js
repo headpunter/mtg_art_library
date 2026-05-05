@@ -47,6 +47,9 @@ const savedDecksList = document.getElementById('savedDecksList');
 let _findRow = null;   // the deck row currently open in the find pane
 let _activeView = 'table';   // 'table' | 'art'
 
+/* ── parse (debounced) ───────────────────────────────────────────── */
+let parseTimer = null;
+
 /* ── init ────────────────────────────────────────────────────────── */
 {
   const saved = localStorage.getItem('build_decklist');
@@ -100,9 +103,6 @@ let _activeView = 'table';   // 'table' | 'art'
 
   if (saved && saved.trim()) parseDeck();
 }
-
-/* ── parse (debounced) ───────────────────────────────────────────── */
-let parseTimer = null;
 
 function schedParse() {
   clearTimeout(parseTimer);

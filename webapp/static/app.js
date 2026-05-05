@@ -342,3 +342,12 @@ function escapeHtml(s) {
 window.addEventListener("click", e => {
   if (e.target === modal?.querySelector(".modal-scrim")) closeModal();
 });
+
+/* ── back to top ─────────────────────────────────────────────────── */
+const backToTop = $("#backToTop");
+if (backToTop) {
+  window.addEventListener("scroll", () => {
+    backToTop.hidden = window.scrollY < 400;
+  }, { passive: true });
+  backToTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+}
