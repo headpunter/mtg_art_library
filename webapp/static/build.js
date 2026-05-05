@@ -127,6 +127,8 @@ async function parseDeck() {
     renderTokens(data.tokens_needed || []);
   } catch (e) {
     console.error('parse error', e);
+    buildEmpty.hidden = false;
+    buildEmpty.querySelector('p').textContent = '✕ ' + e.message;
   } finally {
     btnParse.disabled = false;
     btnParse.textContent = 'Parse';
