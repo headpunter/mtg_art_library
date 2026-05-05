@@ -44,6 +44,18 @@ app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB upload cap
 
+import subprocess as _sp
+try:
+    _ASSET_VER = _sp.check_output(
+        ["git", "rev-parse", "--short", "HEAD"], text=True, stderr=_sp.DEVNULL
+    ).strip()
+except Exception:
+    _ASSET_VER = "1"
+
+@app.context_processor
+def _inject_ver():
+    return {"ver": _ASSET_VER}
+
 LIB_ROOT_OVERRIDE: Path | None = None
 
 

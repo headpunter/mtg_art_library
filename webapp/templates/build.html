@@ -157,5 +157,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='build.js') }}"></script>
+<script src="{{ url_for('static', filename='build.js') }}?v={{ ver }}"></script>
 {% endblock %}
