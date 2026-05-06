@@ -240,12 +240,21 @@ def api_scryfall_printings():
     try:
         import requests
         # Use Scryfall search syntax: !"exact name" unique:prints
-        r = requests.get("https://api.scryfall.com/cards/search",
-                         params={"q": f'!"{name}" unique:prints', "order": "usd"},
-                         headers={"User-Agent": "MTG-Art-Library/1.0"},
-                         timeout=15)
-        r.raise_for_status()
-        data = r.json().get("data", [])
+        resp = requests.get("https://api.scryfall.com/cards/search",
+                            params={"q": f'!"{name}" unique:prints', "order": "released"},
+                            headers={"User-Agent": "MTG-Art-Library/1.0"},
+                            timeout=15)
+        resp.raise_for_status()
+        body = resp.json()
+        data = body.get("data", [])
+        # Follow pagination (Scryfall returns max 175 per page)
+        while body.get("has_more") and body.get("next_page"):
+            resp = requests.get(body["next_page"],
+                                headers={"User-Agent": "MTG-Art-Library/1.0"},
+                                timeout=15)
+            resp.raise_for_status()
+            body = resp.json()
+            data.extend(body.get("data", []))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -278,9 +287,7 @@ def api_scryfall_printings():
 
     # Sort: foil-only goes to bottom; within each group, descending price
     out.sort(key=lambda x: (x["foil_only"], -x["price"]))
-    top = out[:5]
-    full_count = len(out)
-    return jsonify({"top": top, "total": full_count})
+    return jsonify({"top": out, "total": len(out)})
 
 
 @app.route("/api/scryfall/token-printings")
