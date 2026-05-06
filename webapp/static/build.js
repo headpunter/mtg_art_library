@@ -6,62 +6,59 @@ let parsedRows = [];
 let selections = {};      // slug -> printing_id
 let selectedFormat = 'png';
 
-/* ── elements ────────────────────────────────────────────────────── */
-const deckInput      = document.getElementById('deckInput');
-const btnParse       = document.getElementById('btnParse');
-const btnImportXml   = document.getElementById('btnImportXml');
-const xmlFileInput   = document.getElementById('xmlFileInput');
-const importNote     = document.getElementById('importNote');
-const btnIngestXml   = document.getElementById('btnIngestXml');
-const xmlArtFileInput = document.getElementById('xmlArtFileInput');
-const ingestNote     = document.getElementById('ingestNote');
-const btnFetchPinned  = document.getElementById('btnFetchPinned');
-const fetchPinnedNote = document.getElementById('fetchPinnedNote');
-const btnBuild       = document.getElementById('btnBuild');
-const buildEmpty     = document.getElementById('buildEmpty');
-const buildTableWrap = document.getElementById('buildTableWrap');
-const deckBody       = document.getElementById('deckBody');
-const buildFooter    = document.getElementById('buildFooter');
-const footerSummary  = document.getElementById('footerSummary');
-const formatSeg      = document.getElementById('formatSeg');
-const pdfLayoutSel   = document.getElementById('pdfLayoutSel');
-const cardbackSel    = document.getElementById('cardbackSel');
-const tokensPanel    = document.getElementById('tokensPanel');
-const tokensList     = document.getElementById('tokensList');
-const tokensHint     = document.getElementById('tokensHint');
-const findPane       = document.getElementById('findPane');
-const findPaneTitle  = document.getElementById('findPaneTitle');
-const findPaneResults = document.getElementById('findPaneResults');
-const findPaneClose  = document.getElementById('findPaneClose');
-const viewToggle     = document.getElementById('viewToggle');
-const artGridWrap    = document.getElementById('artGridWrap');
-const artGrid        = document.getElementById('artGrid');
-const printPickPane  = document.getElementById('printPickPane');
-const printPickTitle = document.getElementById('printPickTitle');
-const printPickBody  = document.getElementById('printPickBody');
-const printPickClose = document.getElementById('printPickClose');
-const deckNameInput  = document.getElementById('deckNameInput');
-const btnSaveDeck    = document.getElementById('btnSaveDeck');
-const savedDecksList = document.getElementById('savedDecksList');
-
-let _findRow = null;   // the deck row currently open in the find pane
-let _activeView = 'table';   // 'table' | 'art'
-
-/* ── null element check ──────────────────────────────────────────── */
-{
-  const _required = {
-    deckInput, btnParse, btnImportXml, xmlFileInput, importNote,
-    btnIngestXml, xmlArtFileInput, ingestNote, btnFetchPinned, fetchPinnedNote,
-    btnBuild, buildEmpty, buildTableWrap, deckBody, buildFooter, footerSummary,
-    formatSeg, pdfLayoutSel, cardbackSel, tokensPanel, tokensList, tokensHint,
-    findPane, findPaneTitle, findPaneResults, findPaneClose,
-    viewToggle, artGridWrap, artGrid,
-    printPickPane, printPickTitle, printPickBody, printPickClose,
-    deckNameInput, btnSaveDeck, savedDecksList,
-  };
-  const _missing = Object.entries(_required).filter(([, v]) => !v).map(([k]) => k);
-  if (_missing.length) console.error('build.js: null elements:', _missing);
+/* ── element lookup (throws immediately if page HTML is stale) ───── */
+function req(id) {
+  const el = document.getElementById(id);
+  if (!el) {
+    document.body.innerHTML =
+      `<div style="display:flex;align-items:center;justify-content:center;height:100vh;` +
+      `font-family:monospace;font-size:14px;color:#b58a3a;flex-direction:column;gap:12px">` +
+      `<span style="font-size:32px">⌬</span>` +
+      `<span>Page is outdated — press <kbd>Ctrl+Shift+R</kbd> (or Cmd+Shift+R) to reload.</span>` +
+      `<span style="color:#6b6452;font-size:11px">Missing element: #${id}</span>` +
+      `</div>`;
+    throw new Error(`Required element #${id} not found — stale page`);
+  }
+  return el;
 }
+
+/* ── elements ────────────────────────────────────────────────────── */
+const deckInput       = req('deckInput');
+const btnParse        = req('btnParse');
+const btnImportXml    = req('btnImportXml');
+const xmlFileInput    = req('xmlFileInput');
+const importNote      = req('importNote');
+const btnIngestXml    = req('btnIngestXml');
+const xmlArtFileInput = req('xmlArtFileInput');
+const ingestNote      = req('ingestNote');
+const btnFetchPinned  = req('btnFetchPinned');
+const fetchPinnedNote = req('fetchPinnedNote');
+const btnBuild        = req('btnBuild');
+const buildEmpty      = req('buildEmpty');
+const buildTableWrap  = req('buildTableWrap');
+const deckBody        = req('deckBody');
+const buildFooter     = req('buildFooter');
+const footerSummary   = req('footerSummary');
+const formatSeg       = req('formatSeg');
+const pdfLayoutSel    = req('pdfLayoutSel');
+const cardbackSel     = req('cardbackSel');
+const tokensPanel     = req('tokensPanel');
+const tokensList      = req('tokensList');
+const tokensHint      = req('tokensHint');
+const findPane        = req('findPane');
+const findPaneTitle   = req('findPaneTitle');
+const findPaneResults = req('findPaneResults');
+const findPaneClose   = req('findPaneClose');
+const viewToggle      = req('viewToggle');
+const artGridWrap     = req('artGridWrap');
+const artGrid         = req('artGrid');
+const printPickPane   = req('printPickPane');
+const printPickTitle  = req('printPickTitle');
+const printPickBody   = req('printPickBody');
+const printPickClose  = req('printPickClose');
+const deckNameInput   = req('deckNameInput');
+const btnSaveDeck     = req('btnSaveDeck');
+const savedDecksList  = req('savedDecksList');
 
 /* ── parse (debounced) ───────────────────────────────────────────── */
 let parseTimer = null;
@@ -132,24 +129,24 @@ async function parseDeck() {
 
   btnParse.disabled = true;
   btnParse.textContent = 'Parsing…';
+  let data;
   try {
-    const data = await api('/api/parse-decklist', {
+    data = await api('/api/parse-decklist', {
       method: 'POST',
       body: JSON.stringify({ text }),
     });
-    parsedRows = data.rows;
-    updateStats(data.stats);
-    renderTable(data.rows);
-    renderTokens(data.tokens_needed || []);
   } catch (e) {
-    console.error('parse error', e);
-    buildEmpty.hidden = false;
-    const _line = (e.stack || '').match(/build\.js:(\d+)/)?.[1];
-    buildEmpty.querySelector('p').textContent = '✕ ' + e.message + (_line ? ` [build.js:${_line}]` : '');
-  } finally {
+    console.error('parse API error', e);
     btnParse.disabled = false;
     btnParse.textContent = 'Parse';
+    return;
   }
+  parsedRows = data.rows;
+  updateStats(data.stats);
+  renderTable(data.rows);
+  renderTokens(data.tokens_needed || []);
+  btnParse.disabled = false;
+  btnParse.textContent = 'Parse';
 }
 
 /* ── table render ────────────────────────────────────────────────── */
@@ -167,8 +164,8 @@ function clearTable() {
 function renderTable(rows) {
   if (!rows.length) { clearTable(); return; }
   buildEmpty.hidden = true;
-  if (viewToggle) viewToggle.hidden = false;
-  if (buildFooter) buildFooter.hidden = false;
+  viewToggle.hidden = false;
+  buildFooter.hidden = false;
 
   for (const row of rows) {
     if (!selections[row.slug] || !row.printings.find(p => p.id === selections[row.slug])) {
