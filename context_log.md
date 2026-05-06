@@ -5,7 +5,34 @@ Read this at the start of a new session to pick up context fast.
 
 ---
 
-## Session: 2026-05-06 (latest)
+## Session: 2026-05-06 (continued — second session)
+
+### Features added
+
+1. **Parallel art ingest** (`731f690`) — already in log above but implemented this session:
+   - XML art: 8-worker parallel Google Drive downloads → sequential ingest
+   - Scryfall pinned: 6-worker ThreadPoolExecutor with `threading.Lock` on lib mutations
+
+2. **All table rows clickable + unified Find Pane** (`121edb2`) — clicking any row opens the find pane showing:
+   - Library thumbnails (selectable, selected tile gets ✓ badge + gold border)
+   - All Scryfall printings grouped: Special treatments / Standard / Foil-only
+   - Active row highlighted with gold left-border inset shadow
+
+3. **All Scryfall printings shown** (`f46664b`) — removed the [:5] cap; follows pagination for >175 results; sorts release-date descending within tier groups
+
+4. **Scryfall printings prioritized by treatment** (`1f4d019`) — tier sort: borderless+showcase → showcase → extended art → borderless → full art → retro → etched → standard. Treatment badge shown on each featured card. Three display groups: Special treatments / Standard printings / Foil only.
+
+5. **Basic land filtering** (`a2e8658`) — if `type_line` contains "Basic Land", only full arts and showcases returned. Note shown in panel.
+
+6. **Per-deck cardback setting** (`4b9fba6`) — `deckCardbackSel` in the aside is now styled and visible. Saved deck items show the chosen cardback name below the deck name. Save/load/build all wire through `cardback_key`.
+
+### Open / known issues
+- Multiple orphaned Flask processes accumulate if you restart without killing by PID. Use `Get-NetTCPConnection -LocalPort 5000` + `Stop-Process` in PowerShell to kill all before restarting.
+- `tools/library.py` and `webapp/app.py` have unstaged changes from a remote commit pulled mid-session (`3cabf1f` — added CLAUDE.md). Check `git diff` before committing if those files appear modified.
+
+---
+
+## Session: 2026-05-06 (earlier)
 
 **Investigated Build Deck rendering failure. Updated this log.**
 
