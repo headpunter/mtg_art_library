@@ -167,8 +167,8 @@ function clearTable() {
 function renderTable(rows) {
   if (!rows.length) { clearTable(); return; }
   buildEmpty.hidden = true;
-  viewToggle.hidden = false;
-  buildFooter.hidden = false;
+  if (viewToggle) viewToggle.hidden = false;
+  if (buildFooter) buildFooter.hidden = false;
 
   for (const row of rows) {
     if (!selections[row.slug] || !row.printings.find(p => p.id === selections[row.slug])) {

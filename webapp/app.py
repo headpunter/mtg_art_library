@@ -56,6 +56,12 @@ except Exception:
 def _inject_ver():
     return {"ver": _ASSET_VER}
 
+@app.after_request
+def _no_cache_html(response):
+    if "text/html" in response.content_type:
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 LIB_ROOT_OVERRIDE: Path | None = None
 
 
