@@ -615,23 +615,44 @@ def api_ingest_scryfall_pinned():
         return jsonify({"error": "too many entries (max 500)"}), 400
 
     def run(job):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         lib = get_lib()
         total = len(entries)
         ok, failed = [], []
+        lib_lock = threading.Lock()
+        done_count = 0
+        progress_lock = threading.Lock()
 
-        for i, e in enumerate(entries, 1):
+        def fetch_one(e):
+            nonlocal done_count
             name = e.get("name", "")
             set_code = e.get("set")
             num = e.get("num")
-            job.update(f"[{i}/{total}] {name} ({set_code} {num})…")
             try:
                 slug, pid = ingest_scryfall(
-                    lib, name, set_code, num, make_default=True,
+                    lib, name, set_code, num, make_default=True, lib_lock=lib_lock,
                 )
-                lib.save()
-                ok.append({"name": name, "slug": slug, "printing_id": pid})
+                result = {"name": name, "slug": slug, "printing_id": pid}
             except Exception as exc:
-                failed.append({"name": name, "error": str(exc)})
+                result = {"name": name, "error": str(exc)}
+            with progress_lock:
+                done_count += 1
+                job.update(f"[{done_count}/{total}] {name}…")
+            return result
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futures = {pool.submit(fetch_one, e): e for e in entries}
+            for fut in as_completed(futures):
+                r = fut.result()
+                if "error" in r:
+                    failed.append(r)
+                else:
+                    ok.append(r)
+
+        with lib_lock:
+            lib.save()
 
         summary = f"Done — {len(ok)} added"
         if failed:
@@ -699,6 +720,8 @@ def api_ingest_mpcfill_xml_art():
         return jsonify({"error": "No Google Drive file IDs found in XML"}), 400
 
     def run(job):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         from download_drive import download_drive_file
         from add_card import ingest_file
         from library import Printing
@@ -708,24 +731,62 @@ def api_ingest_mpcfill_xml_art():
         staging = lib.root / ".upload_staging"
         staging.mkdir(exist_ok=True)
 
-        ok, failed = [], []
         total = len(downloadable)
+        dl_done = 0
+        dl_lock = threading.Lock()
 
-        for i, e in enumerate(downloadable, 1):
-            job.update(f"[{i}/{total}] {e.name}…")
+        # Phase 1: parallel downloads
+        job.update(f"Downloading 0/{total}…")
+
+        def dl_one(e):
+            nonlocal dl_done
             tmp = staging / f"xmlart_{e.drive_id}.jpg"
             try:
                 download_drive_file(e.drive_id, tmp)
+            except Exception as exc:
+                with dl_lock:
+                    dl_done += 1
+                    job.update(f"Downloading {dl_done}/{total}…")
+                return e, exc
+            # Front downloaded OK — optionally grab back face
+            tmp_back = None
+            if e.back_drive_id:
+                tmp_back = staging / f"xmlart_{e.back_drive_id}.jpg"
+                try:
+                    download_drive_file(e.back_drive_id, tmp_back)
+                except Exception:
+                    tmp_back = None  # back failed; front is still good
+            with dl_lock:
+                dl_done += 1
+                job.update(f"Downloading {dl_done}/{total}…")
+            return e, (tmp, tmp_back)
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            dl_futures = [pool.submit(dl_one, e) for e in downloadable]
+            dl_results = [f.result() for f in as_completed(dl_futures)]
+
+        # Phase 2: sequential ingest (lib is not thread-safe for mutations)
+        ok, failed = [], []
+        for i, (e, result) in enumerate(dl_results, 1):
+            job.update(f"[{i}/{total}] ingesting {e.name}…")
+
+            if isinstance(result, Exception):
+                failed.append({"name": e.name, "error": str(result)})
+                continue
+
+            tmp, tmp_back = result
+
+            try:
                 slug, pid = ingest_file(
                     lib, tmp, e.name,
                     tag="mpcfill_xml",
                     make_default=True,
                 )
-                # If this entry has a back face, download and save it
+                # Handle back face for DFC
                 if e.back_drive_id and e.back_name:
-                    tmp_back = staging / f"xmlart_{e.back_drive_id}.jpg"
-                    try:
-                        download_drive_file(e.back_drive_id, tmp_back)
+                    if isinstance(tmp_back, Exception):
+                        pass  # back face download failed; front is still ok
+                    elif tmp_back and tmp_back.exists():
                         back_img_path = lib.back_file_path(slug, pid)
                         from PIL import Image
                         from bleed import apply_bleed
@@ -734,27 +795,22 @@ def api_ingest_mpcfill_xml_art():
                         back_img_path.parent.mkdir(parents=True, exist_ok=True)
                         finished.save(back_img_path, "PNG",
                                       dpi=(lib.canonical_dpi, lib.canonical_dpi))
-                        # Update printing with DFC info
                         card = lib.cards.get(slug)
                         if card and pid in card.printings:
                             card.printings[pid].is_dfc = True
                             card.printings[pid].back_name = e.back_name
-                    finally:
-                        try:
-                            tmp_back.unlink(missing_ok=True)
-                        except OSError:
-                            pass
-                lib.save()
                 ok.append({"name": e.name, "slug": slug, "printing_id": pid,
                            "dfc": bool(e.back_drive_id)})
             except Exception as exc:
                 failed.append({"name": e.name, "error": str(exc)})
             finally:
-                try:
-                    tmp.unlink(missing_ok=True)
-                except OSError:
-                    pass
+                for p in filter(None, [tmp, tmp_back]):
+                    try:
+                        p.unlink(missing_ok=True)
+                    except OSError:
+                        pass
 
+        lib.save()
         return {
             "ok": ok,
             "failed": failed,

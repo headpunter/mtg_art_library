@@ -41,6 +41,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from contextlib import contextmanager
+
 from library import (
     Library, Printing, dimensions_for_dpi,
     normalize_name, normalize_printing_id,
@@ -51,11 +53,17 @@ import scryfall
 import upscaler
 
 
+@contextmanager
+def _nullctx():
+    yield
+
+
 def _process_card_json(
     lib: Library,
     card_json: dict,
     bleed_method: str | None = None,
     make_default: bool = False,
+    lib_lock=None,
 ) -> tuple[str, str]:
     """Download, upscale, bleed and save a card already fetched from Scryfall.
 
@@ -114,11 +122,11 @@ def _process_card_json(
         is_dfc=dfc,
         back_name=back_name,
     )
-    card_obj = lib.add_printing(real_name, pid, p, make_default=make_default)
-
-    tokens = scryfall.related_token_names(card_json)
-    if tokens:
-        card_obj.related_tokens = tokens
+    with lib_lock or _nullctx():
+        card_obj = lib.add_printing(real_name, pid, p, make_default=make_default)
+        tokens = scryfall.related_token_names(card_json)
+        if tokens:
+            card_obj.related_tokens = tokens
 
     print(f"    OK {slug}/{pid}.png" + (" + back" if dfc else ""))
     return slug, pid
@@ -126,7 +134,7 @@ def _process_card_json(
 
 def ingest_scryfall(lib: Library, name: str, set_code: str | None = None,
                     num: str | None = None, bleed_method: str | None = None,
-                    make_default: bool = False) -> tuple[str, str]:
+                    make_default: bool = False, lib_lock=None) -> tuple[str, str]:
     """Pull from Scryfall, upscale, bleed, save. Auto-fetches associated tokens.
 
     Returns (slug, printing_id) for the main card.
@@ -134,15 +142,14 @@ def ingest_scryfall(lib: Library, name: str, set_code: str | None = None,
     print(f"  -> fetch: {name}" + (f" ({set_code} {num})" if set_code else ""))
     card_json = scryfall.fetch_card(name, set_code, num)
 
-    slug, pid = _process_card_json(lib, card_json, bleed_method, make_default)
+    slug, pid = _process_card_json(lib, card_json, bleed_method, make_default, lib_lock=lib_lock)
 
     # Auto-fetch the exact token(s) printed alongside this card in the same set
     for tok in scryfall.related_token_parts(card_json):
-        tok_slug = normalize_name(tok["name"])
         print(f"  -> token: {tok['name']}")
         try:
             tok_json = scryfall.fetch_by_uri(tok["uri"])
-            _process_card_json(lib, tok_json, bleed_method, make_default=True)
+            _process_card_json(lib, tok_json, bleed_method, make_default=True, lib_lock=lib_lock)
         except Exception as exc:
             print(f"    token {tok['name']} skipped: {exc}", file=sys.stderr)
 
