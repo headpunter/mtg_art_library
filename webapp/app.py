@@ -265,28 +265,76 @@ def api_scryfall_printings():
         prices = c.get("prices", {})
         usd = prices.get("usd")
         usd_foil = prices.get("usd_foil")
-        # Use non-foil price; fall back to foil price if non-foil missing
         try:
             price_val = float(usd) if usd else (float(usd_foil) if usd_foil else 0.0)
         except (TypeError, ValueError):
             price_val = 0.0
+
+        frame_effects = c.get("frame_effects") or []
+        full_art      = bool(c.get("full_art"))
+        border_color  = c.get("border_color", "black")
+
+        is_borderless    = border_color == "borderless"
+        is_showcase      = "showcase"    in frame_effects
+        is_extendedart   = "extendedart" in frame_effects
+        is_fullart       = full_art or "fullart" in frame_effects
+        is_retro         = "inverted"    in frame_effects
+        is_etched        = "etched"      in frame_effects
+
+        # Compute display tier (lower = more featured)
+        if is_borderless and (is_showcase or is_extendedart or is_fullart):
+            tier = 0
+        elif is_showcase:
+            tier = 1
+        elif is_extendedart:
+            tier = 2
+        elif is_borderless:
+            tier = 3
+        elif is_fullart:
+            tier = 4
+        elif is_retro:
+            tier = 5
+        elif is_etched:
+            tier = 6
+        else:
+            tier = 7
+
+        # Human-readable treatment label
+        parts = []
+        if is_borderless:  parts.append("Borderless")
+        if is_showcase:    parts.append("Showcase")
+        if is_extendedart: parts.append("Extended Art")
+        if is_fullart:     parts.append("Full Art")
+        if is_retro:       parts.append("Retro Frame")
+        if is_etched:      parts.append("Etched")
+        treatment = " · ".join(parts) if parts else None
+
         out.append({
             "id": c.get("id"),
             "name": c.get("name"),
             "set": c.get("set"),
             "set_name": c.get("set_name"),
             "collector_number": c.get("collector_number"),
-            "frame": c.get("frame"),
-            "border_color": c.get("border_color"),
             "released_at": c.get("released_at"),
             "image_normal": (c.get("image_uris") or {}).get("normal")
                 or (c.get("card_faces", [{}])[0].get("image_uris", {}) or {}).get("normal"),
             "price": price_val,
             "foil_only": foil_only,
+            "tier": tier,
+            "treatment": treatment,
+            "featured": tier < 7,
         })
 
-    # Sort: foil-only goes to bottom; within each group, descending price
-    out.sort(key=lambda x: (x["foil_only"], -x["price"]))
+    def _date_int(x):
+        d = x.get("released_at") or "0000-00-00"
+        try:
+            return int(d.replace("-", ""))
+        except ValueError:
+            return 0
+
+    # foil-only last → tier ascending → newest first within each group
+    out.sort(key=lambda x: (x["foil_only"], x["tier"], -_date_int(x)))
+
     return jsonify({"top": out, "total": len(out)})
 
 

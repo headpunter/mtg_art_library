@@ -952,7 +952,18 @@ body[data-page="build"] main {
 }
 .fp-set   { font-family: var(--mono); font-size: 11px; color: var(--paper); font-weight: 500; }
 .fp-num   { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
-.fp-price { font-family: var(--mono); font-size: 10px; color: var(--gold-hi); }
+.fp-price     { font-family: var(--mono); font-size: 10px; color: var(--gold-hi); }
+.fp-treatment { font-family: var(--mono); font-size: 9px; color: var(--gold); font-weight: 600;
+                text-transform: uppercase; letter-spacing: .06em; }
+
+/* Scryfall result groups inside the find pane */
+.sf-group { width: 100%; flex-shrink: 0; margin-bottom: 12px; }
+.sf-group-label {
+  font-family: var(--mono); font-size: 9px; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--ink-faint);
+  padding-bottom: 6px; border-bottom: 1px solid var(--rule); margin-bottom: 8px;
+}
+.sf-group-grid { display: flex; flex-wrap: wrap; gap: 10px; }
 
 /* inline job strip */
 .job-strip {

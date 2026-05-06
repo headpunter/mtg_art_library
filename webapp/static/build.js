@@ -438,6 +438,19 @@ async function loadFindResults(row) {
   await loadScryfallResults(row);
 }
 
+function _buildFindPick(p) {
+  return `<div class="find-pick${p.foil_only ? ' foil' : ''}"
+              data-set="${escapeHtml(p.set)}" data-num="${escapeHtml(p.collector_number)}">
+    <img src="${escapeHtml(p.image_normal || '')}" alt="" loading="lazy">
+    <div class="find-pick-meta">
+      ${p.treatment ? `<span class="fp-treatment">${escapeHtml(p.treatment)}</span>` : ''}
+      <span class="fp-set">${escapeHtml(p.set.toUpperCase())} · ${escapeHtml(p.set_name)}</span>
+      <span class="fp-num">#${escapeHtml(p.collector_number)} · ${escapeHtml(p.released_at || '')}</span>
+      <span class="fp-price">${p.price ? '$' + p.price.toFixed(2) : '—'}${p.foil_only ? ' · foil only' : ''}</span>
+    </div>
+  </div>`;
+}
+
 async function loadScryfallResults(row) {
   const container = document.getElementById('findScryfallResults') || findPaneResults;
   try {
@@ -446,17 +459,32 @@ async function loadScryfallResults(row) {
       container.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No printings found')}</span>`;
       return;
     }
-    container.innerHTML = r.top.map(p =>
-      `<div class="find-pick${p.foil_only ? ' foil' : ''}"
-            data-set="${escapeHtml(p.set)}" data-num="${escapeHtml(p.collector_number)}">
-        <img src="${escapeHtml(p.image_normal || '')}" alt="" loading="lazy">
-        <div class="find-pick-meta">
-          <span class="fp-set">${escapeHtml(p.set.toUpperCase())} · ${escapeHtml(p.set_name)}</span>
-          <span class="fp-num">#${escapeHtml(p.collector_number)} · ${escapeHtml(p.released_at || '')}</span>
-          <span class="fp-price">${p.price ? '$' + p.price.toFixed(2) : '—'}${p.foil_only ? ' · foil only' : ''}</span>
-        </div>
-      </div>`
-    ).join('');
+
+    const featured  = r.top.filter(p => p.featured);
+    const standard  = r.top.filter(p => !p.featured && !p.foil_only);
+    const foilOnly  = r.top.filter(p => !p.featured && p.foil_only);
+
+    let html = '';
+    if (featured.length) {
+      html += `<div class="sf-group">`;
+      html += `<div class="sf-group-label">Special treatments (${featured.length})</div>`;
+      html += `<div class="sf-group-grid">${featured.map(_buildFindPick).join('')}</div>`;
+      html += `</div>`;
+    }
+    if (standard.length) {
+      html += `<div class="sf-group">`;
+      html += `<div class="sf-group-label">Standard printings (${standard.length})</div>`;
+      html += `<div class="sf-group-grid">${standard.map(_buildFindPick).join('')}</div>`;
+      html += `</div>`;
+    }
+    if (foilOnly.length) {
+      html += `<div class="sf-group">`;
+      html += `<div class="sf-group-label">Foil only (${foilOnly.length})</div>`;
+      html += `<div class="sf-group-grid">${foilOnly.map(_buildFindPick).join('')}</div>`;
+      html += `</div>`;
+    }
+
+    container.innerHTML = html;
     container.querySelectorAll('.find-pick').forEach(el => {
       el.addEventListener('click', () => ingestForRow(row, el.dataset.set, el.dataset.num));
     });
