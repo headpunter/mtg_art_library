@@ -258,6 +258,9 @@ def api_scryfall_printings():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+    # Detect basic lands from the first result (type_line is consistent across printings)
+    is_basic_land = "Basic Land" in (data[0].get("type_line", "") if data else "")
+
     out = []
     for c in data:
         finishes = c.get("finishes", [])
@@ -325,6 +328,13 @@ def api_scryfall_printings():
             "featured": tier < 7,
         })
 
+    # Basic lands have hundreds of standard printings — only keep full arts and showcases
+    if is_basic_land:
+        out = [x for x in out if x["featured"] and (
+            "Full Art" in (x["treatment"] or "") or
+            "Showcase" in (x["treatment"] or "")
+        )]
+
     def _date_int(x):
         d = x.get("released_at") or "0000-00-00"
         try:
@@ -335,7 +345,7 @@ def api_scryfall_printings():
     # foil-only last → tier ascending → newest first within each group
     out.sort(key=lambda x: (x["foil_only"], x["tier"], -_date_int(x)))
 
-    return jsonify({"top": out, "total": len(out)})
+    return jsonify({"top": out, "total": len(out), "is_basic_land": is_basic_land})
 
 
 @app.route("/api/scryfall/token-printings")

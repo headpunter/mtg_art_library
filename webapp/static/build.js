@@ -465,6 +465,9 @@ async function loadScryfallResults(row) {
     const foilOnly  = r.top.filter(p => !p.featured && p.foil_only);
 
     let html = '';
+    if (r.is_basic_land) {
+      html += `<div class="sf-basic-note">Basic land — showing full arts &amp; showcases only</div>`;
+    }
     if (featured.length) {
       html += `<div class="sf-group">`;
       html += `<div class="sf-group-label">Special treatments (${featured.length})</div>`;
