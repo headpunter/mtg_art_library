@@ -5,7 +5,27 @@ Read this at the start of a new session to pick up context fast.
 
 ---
 
-## Session: 2026-05-04 (this session)
+## Session: 2026-05-06
+
+**Context log created. Investigated Build Deck rendering failure.**
+
+### Bugs found and fixed (already on master from a May 4 laptop session)
+
+1. **`parseTimer` TDZ error** (`7203733`) — `let parseTimer = null` was declared *after* the init block in `build.js`, but `parseDeck()` (which reads `parseTimer`) was called synchronously from inside that block. JavaScript `let` temporal dead zone threw a `ReferenceError` on startup. Fix: moved declaration before the init block.
+
+2. **Stale browser-cached `build.js`** (`5faa468`) — after removing MPC AutoFill, browsers with cached old `build.js` would crash on init (`btnFetchMissing` and `findPaneTabs` are null in the current HTML). Fix: git-hash cache-busting (`?v={{ ver }}`) added to all static asset URLs in `base.html` and `build.html`.
+
+3. **Visible error surfacing** (`ce4e425`, `93aba22`) — parse/render errors were swallowed silently. Now shown in-UI so debugging is easier.
+
+4. **Back-to-top button** (`7203733`) — added to all pages, appears after scrolling 400px.
+
+### Also done this session
+- Added `context_log.md` to the repo (this file) — commit `eeb1f65`
+- Answered question about cross-session visibility: Claude Code sessions can't see each other, but can read GitHub commit history and this file
+
+---
+
+## Session: 2026-05-04
 
 **Branch:** `claude/implement-todo-item-UhA1Z` → merged to `master`
 
@@ -95,6 +115,7 @@ Commits were made by `headpunter` with `Co-Authored-By: Claude Sonnet 4.6` — w
 - `library_inspect.py --sizes` requires Pillow; not noted in README yet.
 - No automated tests beyond `test_pipeline.py` (path was hardcoded to `/home/claude/...` — should use `PYTHONPATH=tools python test_pipeline.py` from repo root).
 - The feature branch `claude/implement-todo-item-UhA1Z` still exists on remote — can be deleted.
+- When making JS/CSS changes, remember to bump the `?v=` suffix in `base.html` and `build.html` — or rely on the git-hash approach already in place (check how `ver` is injected in app.py).
 
 ---
 
