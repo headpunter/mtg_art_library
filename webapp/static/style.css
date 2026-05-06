@@ -672,6 +672,85 @@ body[data-page="build"] main {
 .find-pane .fp-set { font-size: 10px; }
 .find-pane .fp-num { font-size: 9px; }
 
+/* find pane sections */
+.find-section {
+  width: 100%;
+  flex-shrink: 0;
+}
+.find-section + .find-section { margin-top: 12px; }
+.find-section-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--ink-faint);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 10px;
+}
+.find-scryfall-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* library thumbnails inside find pane */
+.find-lib-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.find-lib-tile {
+  position: relative;
+  width: 110px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  padding: 4px;
+  transition: border-color .12s, background .12s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.find-lib-tile:hover { border-color: var(--rule-2); background: var(--bg-3); }
+.find-lib-tile.selected {
+  border-color: var(--gold);
+  background: rgba(181,138,58,.1);
+  box-shadow: 0 0 10px rgba(181,138,58,.2);
+}
+.find-lib-tile img {
+  width: 100%;
+  aspect-ratio: 745 / 1040;
+  object-fit: cover;
+  display: block;
+  border-radius: 2px;
+}
+.find-lib-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.find-lib-tile.selected .find-lib-label { color: var(--gold); }
+.find-lib-tile.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 5px; right: 5px;
+  background: var(--gold);
+  color: var(--bg);
+  font-size: 8px;
+  font-family: var(--mono);
+  padding: 1px 4px;
+  border-radius: 2px;
+  line-height: 1.5;
+}
+
 .build-table-wrap {
   flex: 1;
   overflow-y: auto;
@@ -706,12 +785,15 @@ body[data-page="build"] main {
   border-bottom: 1px solid var(--rule);
 }
 
+.deck-row { cursor: pointer; }
 .deck-row.row-ok      { background: rgba(108, 138, 74, .05); }
 .deck-row.row-pick    { background: rgba(181, 138, 58, .05); }
 .deck-row.row-missing { background: rgba(194,  84, 58, .07); }
 .deck-row:hover.row-ok      { background: rgba(108, 138, 74, .11); }
 .deck-row:hover.row-pick    { background: rgba(181, 138, 58, .11); }
 .deck-row:hover.row-missing { background: rgba(194,  84, 58, .13); }
+.deck-row.row-active td { background: rgba(181,138,58,.1) !important; }
+.deck-row.row-active td:first-child { box-shadow: inset 2px 0 0 var(--gold); }
 
 .col-qty {
   width: 44px;

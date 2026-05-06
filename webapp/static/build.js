@@ -61,6 +61,7 @@ const btnSaveDeck     = req('btnSaveDeck');
 const savedDecksList  = req('savedDecksList');
 
 let _findRow    = null;   // the deck row currently open in the find pane
+let _findTr     = null;   // the <tr> element for the open row (highlighted)
 let _activeView = 'table';   // 'table' | 'art'
 
 /* ── parse (debounced) ───────────────────────────────────────────── */
@@ -239,9 +240,15 @@ function buildRow(row) {
     const btn = document.createElement('button');
     btn.className = 'btn btn-find';
     btn.textContent = 'Find';
-    btn.addEventListener('click', () => toggleFindPanel(row, tr));
+    btn.addEventListener('click', e => { e.stopPropagation(); toggleFindPanel(row, tr); });
     tdAction.appendChild(btn);
   }
+
+  // whole row is clickable (strip tile clicks handled separately)
+  tr.addEventListener('click', e => {
+    if (e.target.closest('.print-strip-tile')) return;
+    toggleFindPanel(row, tr);
+  });
 
   tr.append(tdQty, tdCard, tdPrinting, tdAction);
   return tr;
@@ -362,6 +369,7 @@ async function loadTokenResults(tokenName) {
 function closeFindPane() {
   findPane.hidden = true;
   _findRow = null;
+  if (_findTr) { _findTr.classList.remove('row-active'); _findTr = null; }
 }
 
 function toggleFindPanel(row, tr) {
@@ -369,6 +377,9 @@ function toggleFindPanel(row, tr) {
     closeFindPane();
     return;
   }
+  if (_findTr) _findTr.classList.remove('row-active');
+  _findTr = tr || _findRowTr(row);
+  if (_findTr) _findTr.classList.add('row-active');
   _findRow = row;
   findPaneTitle.innerHTML = `<em>${escapeHtml(row.name)}</em>`;
   findPane.hidden = false;
@@ -377,18 +388,65 @@ function toggleFindPanel(row, tr) {
 }
 
 async function loadFindResults(row) {
-  findPaneResults.innerHTML = `<span class="hint-dim">Loading…</span>`;
+  const libCount = row.printings?.length || 0;
+  const currentPid = selections[row.slug] || row.selected;
+
+  let html = '';
+
+  // Library section (if any printings exist)
+  if (libCount > 0) {
+    html += `<div class="find-section">` +
+      `<div class="find-section-label">In your library &middot; ${libCount} printing${libCount !== 1 ? 's' : ''}</div>` +
+      `<div class="find-lib-strip">`;
+    for (const p of row.printings) {
+      const label = p.set && p.collector_number
+        ? `${p.set.toUpperCase()} #${p.collector_number}`
+        : (p.tag || p.id);
+      const sel = p.id === currentPid;
+      html +=
+        `<div class="find-lib-tile${sel ? ' selected' : ''}" data-pid="${escapeHtml(p.id)}">` +
+        `<img src="/thumb/${encodeURIComponent(row.slug)}/${encodeURIComponent(p.id)}" alt="" loading="lazy">` +
+        `<span class="find-lib-label">${escapeHtml(label)}</span>` +
+        `</div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  // Scryfall section placeholder
+  html += `<div class="find-section">` +
+    `<div class="find-section-label">All Scryfall printings &mdash; click to download &amp; add</div>` +
+    `<div class="find-scryfall-grid" id="findScryfallResults"><span class="hint-dim">Loading&hellip;</span></div>` +
+    `</div>`;
+
+  findPaneResults.innerHTML = html;
+
+  // Wire library tile selection
+  findPaneResults.querySelectorAll('.find-lib-tile').forEach(tile => {
+    tile.addEventListener('click', () => {
+      const pid = tile.dataset.pid;
+      selections[row.slug] = pid;
+      findPaneResults.querySelectorAll('.find-lib-tile')
+        .forEach(t => t.classList.toggle('selected', t.dataset.pid === pid));
+      // Refresh the inline strip in the table row
+      const td = document.getElementById(`printing-${row.slug}`);
+      if (td) renderPrintingCell(row, td);
+      updateSummary();
+      updateBuildButton();
+    });
+  });
+
   await loadScryfallResults(row);
 }
 
 async function loadScryfallResults(row) {
+  const container = document.getElementById('findScryfallResults') || findPaneResults;
   try {
     const r = await api(`/api/scryfall/printings?name=${encodeURIComponent(row.name)}`);
     if (r.error || !r.top?.length) {
-      findPaneResults.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No printings found')}</span>`;
+      container.innerHTML = `<span class="hint-dim">${escapeHtml(r.error || 'No printings found')}</span>`;
       return;
     }
-    findPaneResults.innerHTML = r.top.map(p =>
+    container.innerHTML = r.top.map(p =>
       `<div class="find-pick${p.foil_only ? ' foil' : ''}"
             data-set="${escapeHtml(p.set)}" data-num="${escapeHtml(p.collector_number)}">
         <img src="${escapeHtml(p.image_normal || '')}" alt="" loading="lazy">
@@ -399,13 +457,11 @@ async function loadScryfallResults(row) {
         </div>
       </div>`
     ).join('');
-    findPaneResults.querySelectorAll('.find-pick').forEach(el => {
-      el.addEventListener('click', () => {
-        ingestForRow(row, el.dataset.set, el.dataset.num);
-      });
+    container.querySelectorAll('.find-pick').forEach(el => {
+      el.addEventListener('click', () => ingestForRow(row, el.dataset.set, el.dataset.num));
     });
   } catch (e) {
-    findPaneResults.innerHTML = `<span class="hint-dim">Failed to load printings</span>`;
+    container.innerHTML = `<span class="hint-dim">Failed to load Scryfall printings</span>`;
   }
 }
 
