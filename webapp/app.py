@@ -901,6 +901,23 @@ def build_view():
     return render_template("build.html")
 
 
+@app.route("/decklists")
+def decklists_view():
+    lib = get_lib()
+    decks = [
+        {
+            "key": k,
+            "name": d.name,
+            "text": d.text,
+            "cardback_key": getattr(d, "cardback_key", None),
+            "line_count": len([l for l in d.text.splitlines() if l.strip() and not l.strip().startswith("//")]),
+        }
+        for k, d in lib.decklists.items()
+    ]
+    decks.sort(key=lambda d: d["name"].lower())
+    return render_template("decklists.html", decks=decks)
+
+
 @app.route("/api/parse-decklist", methods=["POST"])
 def api_parse_decklist():
     """Parse a decklist text and cross-reference against the library."""

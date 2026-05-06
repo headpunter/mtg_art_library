@@ -70,8 +70,13 @@ let parseTimer = null;
 
 /* ── init ────────────────────────────────────────────────────────── */
 {
+  const loadKey = new URLSearchParams(location.search).get('load');
   const saved = localStorage.getItem('build_decklist');
-  if (saved) deckInput.value = saved;
+  if (loadKey) {
+    loadDeck(loadKey);  // async; clears ?load from URL after
+  } else if (saved) {
+    deckInput.value = saved;
+  }
 
   deckInput.addEventListener('input', () => {
     localStorage.setItem('build_decklist', deckInput.value);
@@ -994,6 +999,7 @@ async function loadDeck(key) {
     localStorage.setItem('build_decklist', data.text);
     deckNameInput.value = data.name;
     deckCardbackSel.value = data.cardback_key || '';
+    history.replaceState(null, '', location.pathname);
     await parseDeck();
   } catch (e) {
     alert('Failed to load deck: ' + e.message);

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Decklists — MTG Art Library{% endblock %}
+{% block page_id %}decklists{% endblock %}
+
+{% block content %}
+<div class="dl-header">
+  <h1 class="dl-title">Decklists</h1>
+  <a href="{{ url_for('build_view') }}" class="btn primary">+ New Deck</a>
+</div>
+
+{% if decks %}
+<div class="dl-grid">
+  {% for deck in decks %}
+  <div class="dl-card">
+    <div class="dl-card-body">
+      <div class="dl-card-name">{{ deck.name }}</div>
+      <div class="dl-card-meta">
+        <span class="dl-count">{{ deck.line_count }} cards</span>
+      </div>
+      <pre class="dl-preview">{{ deck.text[:200] }}{% if deck.text|length > 200 %}…{% endif %}</pre>
+    </div>
+    <div class="dl-card-actions">
+      <a href="{{ url_for('build_view') }}?load={{ deck.key }}" class="btn primary btn-sm">Open in Build</a>
+      <button class="btn btn-sm btn-danger-outline" data-delete="{{ deck.key }}" data-name="{{ deck.name }}">Delete</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="dl-empty">
+  <p>No saved decklists yet.</p>
+  <a href="{{ url_for('build_view') }}" class="btn primary">Go to Build Deck</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll("[data-delete]").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const key = btn.dataset.delete;
+    const name = btn.dataset.name;
+    if (!confirm(`Delete "${name}"?`)) return;
+    const r = await fetch(`/api/decklists/${encodeURIComponent(key)}`, { method: "DELETE" });
+    if (r.ok) btn.closest(".dl-card").remove();
+    else alert("Delete failed");
+  });
+});
+
+// Auto-load deck into build page if ?load=<key> is present
+// (handled by build.js on the build page itself)
+</script>
+{% endblock %}
