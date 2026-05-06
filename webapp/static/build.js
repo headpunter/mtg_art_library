@@ -60,6 +60,9 @@ const deckNameInput   = req('deckNameInput');
 const btnSaveDeck     = req('btnSaveDeck');
 const savedDecksList  = req('savedDecksList');
 
+let _findRow    = null;   // the deck row currently open in the find pane
+let _activeView = 'table';   // 'table' | 'art'
+
 /* ── parse (debounced) ───────────────────────────────────────────── */
 let parseTimer = null;
 
