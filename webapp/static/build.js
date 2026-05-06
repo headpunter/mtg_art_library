@@ -41,7 +41,7 @@ const buildFooter     = req('buildFooter');
 const footerSummary   = req('footerSummary');
 const formatSeg       = req('formatSeg');
 const pdfLayoutSel    = req('pdfLayoutSel');
-const cardbackSel     = req('cardbackSel');
+const deckCardbackSel = req('deckCardbackSel');
 const tokensPanel     = req('tokensPanel');
 const tokensList      = req('tokensList');
 const tokensHint      = req('tokensHint');
@@ -60,6 +60,7 @@ const deckNameInput   = req('deckNameInput');
 const btnSaveDeck     = req('btnSaveDeck');
 const savedDecksList  = req('savedDecksList');
 
+let _cardbackNames = {};  // key -> name, populated from /api/cardbacks
 let _findRow    = null;   // the deck row currently open in the find pane
 let _findTr     = null;   // the <tr> element for the open row (highlighted)
 let _activeView = 'table';   // 'table' | 'art'
@@ -103,18 +104,19 @@ let parseTimer = null;
       .forEach(b => b.classList.toggle('active', b === btn));
     selectedFormat = btn.dataset.fmt;
     pdfLayoutSel.hidden = selectedFormat !== 'pdf';
-    cardbackSel.hidden  = selectedFormat !== 'xml';
   });
 
-  // Load cardbacks into dropdown
+  // Load cardbacks into aside dropdown
   fetch('/api/cardbacks').then(r => r.json()).then(data => {
-    cardbackSel.innerHTML = '<option value="">— no cardback —</option>';
+    _cardbackNames = {};
+    deckCardbackSel.innerHTML = '<option value="">— no cardback —</option>';
     for (const cb of data.cardbacks) {
+      _cardbackNames[cb.key] = cb.name;
       const opt = document.createElement('option');
       opt.value = cb.key;
       opt.textContent = cb.name + (cb.is_default ? ' ★' : '');
       if (cb.is_default) opt.selected = true;
-      cardbackSel.appendChild(opt);
+      deckCardbackSel.appendChild(opt);
     }
   }).catch(() => {});
 
@@ -586,7 +588,7 @@ async function buildDeck() {
 
   const buildPayload = { rows, format: selectedFormat };
   if (selectedFormat === 'pdf') buildPayload.layout = pdfLayoutSel.value;
-  if (selectedFormat === 'xml' && cardbackSel.value) buildPayload.cardback_key = cardbackSel.value;
+  if (selectedFormat === 'xml' && deckCardbackSel.value) buildPayload.cardback_key = deckCardbackSel.value;
 
   btnBuild.disabled = true;
   btnBuild.textContent = 'Building…';
@@ -944,13 +946,17 @@ function renderSavedDecks(decklists) {
     savedDecksList.innerHTML = '<span class="dim" style="font-size:12px">No saved decklists yet.</span>';
     return;
   }
-  savedDecksList.innerHTML = decklists.map(d =>
-    `<div class="saved-deck-item" data-key="${escapeHtml(d.key)}">` +
-      `<button class="saved-deck-load" data-key="${escapeHtml(d.key)}" title="Load this deck">${escapeHtml(d.name)}</button>` +
+  savedDecksList.innerHTML = decklists.map(d => {
+    const cbName = d.cardback_key ? (_cardbackNames[d.cardback_key] || d.cardback_key) : null;
+    return `<div class="saved-deck-item" data-key="${escapeHtml(d.key)}">` +
+      `<div class="saved-deck-info">` +
+        `<button class="saved-deck-load" data-key="${escapeHtml(d.key)}" title="Load this deck">${escapeHtml(d.name)}</button>` +
+        (cbName ? `<span class="saved-deck-cb dim">↳ ${escapeHtml(cbName)}</span>` : '') +
+      `</div>` +
       `<span class="saved-deck-date dim">${escapeHtml(d.added || '')}</span>` +
       `<button class="saved-deck-del btn-icon" data-key="${escapeHtml(d.key)}" title="Delete">×</button>` +
-    `</div>`
-  ).join('');
+    `</div>`;
+  }).join('');
 
   savedDecksList.querySelectorAll('.saved-deck-load').forEach(btn => {
     btn.addEventListener('click', () => loadDeck(btn.dataset.key));
@@ -970,7 +976,7 @@ async function saveDeck() {
   try {
     await api('/api/decklists', {
       method: 'POST',
-      body: JSON.stringify({ name, text }),
+      body: JSON.stringify({ name, text, cardback_key: deckCardbackSel.value }),
     });
     deckNameInput.value = '';
     await loadSavedDecks();
@@ -987,6 +993,7 @@ async function loadDeck(key) {
     deckInput.value = data.text;
     localStorage.setItem('build_decklist', data.text);
     deckNameInput.value = data.name;
+    deckCardbackSel.value = data.cardback_key || '';
     await parseDeck();
   } catch (e) {
     alert('Failed to load deck: ' + e.message);

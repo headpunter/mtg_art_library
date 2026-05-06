@@ -1697,6 +1697,34 @@ body[data-page="library"] main { padding: 0; }
   margin: 4px 0;
 }
 
+.deck-cardback-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.deck-setting-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+.deck-cardback-sel {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--rule-2);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 8px;
+  outline: none;
+  transition: border-color .15s;
+}
+.deck-cardback-sel:focus { border-color: var(--gold); }
+
 .save-deck-row {
   display: flex;
   gap: 6px;
@@ -1731,9 +1759,14 @@ body[data-page="library"] main { padding: 0; }
   border-bottom: 1px solid var(--rule);
 }
 
-.saved-deck-load {
+.saved-deck-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.saved-deck-load {
   background: none;
   border: none;
   color: var(--gold-hi);
@@ -1747,6 +1780,13 @@ body[data-page="library"] main { padding: 0; }
   padding: 0;
 }
 .saved-deck-load:hover { color: var(--paper); }
+.saved-deck-cb {
+  font-family: var(--mono);
+  font-size: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .saved-deck-date {
   font-family: var(--mono);
