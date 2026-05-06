@@ -722,7 +722,7 @@ body[data-page="build"] main {
   padding-right: 6px;
 }
 .col-card     { min-width: 180px; }
-.col-printing { min-width: 200px; }
+.col-printing { min-width: 240px; }
 .col-action   { width: 80px; text-align: right; }
 
 .status-dot {
@@ -758,6 +758,47 @@ body[data-page="build"] main {
   transition: border-color .15s;
 }
 .printing-sel:focus { border-color: var(--gold); }
+
+/* ── inline thumbnail strip (pick rows) ─────────────────────────── */
+.print-strip {
+  display: flex;
+  gap: 6px;
+  padding: 4px 0;
+  flex-wrap: wrap;
+}
+.print-strip-tile {
+  width: 64px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 2px;
+  transition: border-color .12s, box-shadow .12s;
+}
+.print-strip-tile:hover {
+  border-color: var(--rule-2);
+}
+.print-strip-tile.selected {
+  border-color: var(--gold);
+  box-shadow: 0 0 6px rgba(181,138,58,.35);
+}
+.print-strip-tile img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 745 / 1040;
+  object-fit: cover;
+  display: block;
+}
+.print-strip-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 8px;
+  color: var(--ink-faint);
+  text-align: center;
+  padding: 2px 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .printing-label {
   font-family: var(--mono);
   font-size: 11px;

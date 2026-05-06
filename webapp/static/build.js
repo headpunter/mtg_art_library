@@ -256,21 +256,31 @@ function renderPrintingCell(row, td) {
     td.innerHTML = `<span class="printing-label">${escapeHtml(printingLabel(row.printings[0]))}</span>`;
     return;
   }
-  const sel = document.createElement('select');
-  sel.className = 'printing-sel';
+  // Multiple printings — show horizontal thumbnail strip
+  const strip = document.createElement('div');
+  strip.className = 'print-strip';
   for (const p of row.printings) {
-    const opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = printingLabel(p);
-    if (p.id === selections[row.slug]) opt.selected = true;
-    sel.appendChild(opt);
+    const selected = p.id === selections[row.slug];
+    const tile = document.createElement('div');
+    tile.className = 'print-strip-tile' + (selected ? ' selected' : '');
+    tile.dataset.pid = p.id;
+    const label = p.set && p.collector_number
+      ? `${p.set.toUpperCase()} #${p.collector_number}`
+      : (p.tag || p.id);
+    tile.innerHTML =
+      `<img src="/thumb/${encodeURIComponent(row.slug)}/${encodeURIComponent(p.id)}" alt="" loading="lazy">` +
+      `<span class="print-strip-label">${escapeHtml(label)}</span>`;
+    tile.addEventListener('click', () => {
+      selections[row.slug] = p.id;
+      strip.querySelectorAll('.print-strip-tile').forEach(t =>
+        t.classList.toggle('selected', t.dataset.pid === p.id)
+      );
+      updateSummary();
+      updateBuildButton();
+    });
+    strip.appendChild(tile);
   }
-  sel.addEventListener('change', () => {
-    selections[row.slug] = sel.value;
-    updateSummary();
-  });
-  td.innerHTML = '';
-  td.appendChild(sel);
+  td.appendChild(strip);
 }
 
 function printingLabel(p) {
