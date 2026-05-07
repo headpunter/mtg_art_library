@@ -37,3 +37,6 @@ desktop.ini
 
 # Windows
 *.bat.bak
+
+# Generated script caches
+tools/.nfr_frame_cache.json
