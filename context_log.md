@@ -5,6 +5,33 @@ Read this at the start of a new session to pick up context fast.
 
 ---
 
+## Session: 2026-05-07
+
+### What was done
+
+1. **Design spec gap analysis** — compared `design_handoff_mtg_art_library/` against current implementation. Two tiers of gaps identified:
+   - Tier 1: complete aesthetic mismatch (warm serif/gold vs spec's cool sans/purple)
+   - Tier 2: missing structural components (list view, drawer vs modal, job strips, etc.)
+
+2. **Aesthetic overhaul** (`2fc1f17`) — aligned CSS with design spec:
+   - Cool dark palette (`#14171c` bg, `#8a7cff` accent/purple)
+   - Replaced Cormorant Garamond with Inter; `--serif: var(--sans)` alias redirects all existing rules
+   - Removed paper-grain overlay and warm radial gradient
+   - Stripped `font-style: italic` from all headings; fixed font sizes for sans-serif
+   - Updated all hardcoded gold rgba status colors to spec values
+
+3. **Decklists tab** (`2fc1f17`) — new nav item and `/decklists` page:
+   - Grid of saved decks with name, card count, text preview
+   - "Open in Build" links to `/build?load=<key>`; build.js auto-loads on init and clears URL param
+   - Delete button per deck
+
+4. **NOT FOR RESALE stamp — parked** (`1725a3c`) — `tools/stamp_nfr.py` built as a standalone test harness. Discovered the placement problem: the bottom border is too tight (copyright/artist line is already there; going lower lands in the bleed). Top border and diagonal watermark are viable alternatives. Concept shelved for now — see maybe-todo below.
+
+### Open / known issues
+- `cardback_key` on `SavedDeck` dataclass (`tools/library.py`) — implemented locally by headpunter but may not be pushed to remote yet. Check before next session.
+
+---
+
 ## Session: 2026-05-06 (continued — second session)
 
 ### Features added
@@ -145,11 +172,15 @@ Headpunter + Claude working interactively; headpunter committed manually.
 
 ## Open questions / possible next work
 
+- **Structural design gaps** — aesthetic is now aligned; structural gaps remain: library list view (Grid/List toggle), Add Card drawer (modal vs right-side drawer), inline job strips on library cards and build table rows, Cards/Compact toggle on card detail.
 - **Art grid "Find art" UX** — missing card's "Find art →" button switches to Table view. Could stay in Art view with an overlay instead.
 - **Token ingest on single-card Find** — when user ingests a card via the find pane, related tokens are NOT auto-ingested (only happens on library metadata refresh or batch ingest). Could be a UX improvement.
 - **`library_inspect.py --sizes` requires Pillow** — not documented in README.
 - **No automated tests** — `test_pipeline.py` exists but has a hardcoded path. Run with `PYTHONPATH=tools python test_pipeline.py` from repo root.
 - **Stale branch** — `claude/implement-todo-item-UhA1Z` still exists on remote; can be deleted.
+
+### Maybe / someday
+- **NOT FOR RESALE stamp** — `tools/stamp_nfr.py` exists as a test harness. Concept parked because the bottom border is too tight (copyright/artist line already lives there; going lower lands in bleed). If revisited: top border strip is the cleanest option (pure black, nothing there), or a diagonal semi-transparent watermark across the art. Integration point would be `add_card.py` after upscale, before bleed.
 
 ---
 
