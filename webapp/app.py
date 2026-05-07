@@ -1204,7 +1204,7 @@ def page_cardbacks():
 def api_decklists_list():
     lib = get_lib()
     return jsonify({"decklists": [
-        {"key": k, "name": d.name, "added": d.added}
+        {"key": k, "name": d.name, "added": d.added, "cardback_key": d.cardback_key}
         for k, d in lib.decklists.items()
     ]})
 
@@ -1227,9 +1227,11 @@ def api_decklists_create():
         while f"{key}_{i}" in lib.decklists:
             i += 1
         key = f"{key}_{i}"
+    cardback_key = (data.get("cardback_key") or "").strip()
     deck = SavedDeck(
         name=name, text=text,
         added=_datetime.datetime.utcnow().strftime("%Y-%m-%d"),
+        cardback_key=cardback_key,
     )
     lib.decklists[key] = deck
     lib.save()
@@ -1242,7 +1244,8 @@ def api_decklists_get(key: str):
     if key not in lib.decklists:
         return jsonify({"error": "not found"}), 404
     d = lib.decklists[key]
-    return jsonify({"key": key, "name": d.name, "text": d.text, "added": d.added})
+    return jsonify({"key": key, "name": d.name, "text": d.text, "added": d.added,
+                    "cardback_key": d.cardback_key})
 
 
 @app.route("/api/decklists/<key>", methods=["PUT"])
@@ -1255,6 +1258,8 @@ def api_decklists_update(key: str):
         lib.decklists[key].name = (data["name"] or "").strip() or lib.decklists[key].name
     if "text" in data:
         lib.decklists[key].text = data["text"]
+    if "cardback_key" in data:
+        lib.decklists[key].cardback_key = (data["cardback_key"] or "").strip()
     lib.save()
     return jsonify({"ok": True})
 

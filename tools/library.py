@@ -197,13 +197,20 @@ class SavedDeck:
     name: str
     text: str
     added: str = ""
+    cardback_key: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "text": self.text, "added": self.added}
+        d = {"name": self.name, "text": self.text, "added": self.added}
+        if self.cardback_key:
+            d["cardback_key"] = self.cardback_key
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "SavedDeck":
-        return cls(name=d["name"], text=d["text"], added=d.get("added", ""))
+        return cls(
+            name=d["name"], text=d["text"], added=d.get("added", ""),
+            cardback_key=d.get("cardback_key", ""),
+        )
 
 
 @dataclass
