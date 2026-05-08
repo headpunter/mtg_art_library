@@ -40,3 +40,8 @@ desktop.ini
 
 # Generated script caches
 tools/.nfr_frame_cache.json
+art_library/tools/.nfr_frame_cache.json
+
+# Docker
+.env
+docker-compose.override.yml

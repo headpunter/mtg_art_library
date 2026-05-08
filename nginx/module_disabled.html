@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Module Not Running — MTG Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/shared/nav.css">
+<style>
+  body { background: #14171c; color: #c9d1d9; font-family: Inter, system-ui, sans-serif;
+         display: flex; flex-direction: column; min-height: 100vh; margin: 0; }
+  .disabled-msg { flex: 1; display: flex; flex-direction: column; align-items: center;
+                  justify-content: center; gap: 1rem; padding: 2rem; text-align: center; }
+  .disabled-msg__icon { font-size: 3rem; opacity: .4; }
+  .disabled-msg__title { font-size: 1.25rem; font-weight: 600; color: #e6edf3; margin: 0; }
+  .disabled-msg__body  { color: #8b949e; max-width: 36ch; margin: 0; line-height: 1.6; }
+</style>
+</head>
+<body data-active-module="">
+<!--# include virtual="/_nav" -->
+<div class="disabled-msg">
+  <div class="disabled-msg__icon">⊘</div>
+  <p class="disabled-msg__title">Module not running</p>
+  <p class="disabled-msg__body">
+    This module is not currently enabled. Add it to
+    <code>ENABLED_MODULES</code> in your <code>.env</code> and restart.
+  </p>
+</div>
+<script src="/shared/nav-active.js"></script>
+</body>
+</html>

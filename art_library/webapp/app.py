@@ -92,6 +92,11 @@ def card_summary(slug: str, card) -> dict:
 
 # ---------- pages ----------
 
+@app.route("/health")
+def health():
+    return "ok", 200
+
+
 @app.route("/")
 def home():
     return redirect(url_for("library_view"))

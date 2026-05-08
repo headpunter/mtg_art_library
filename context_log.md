@@ -5,6 +5,71 @@ Read this at the start of a new session to pick up context fast.
 
 ---
 
+## Session: 2026-05-08
+
+### What was done
+
+**Monorepo restructure — Phase 0 (Docker skeleton)**
+
+The repo is being evolved into a multi-service Docker monorepo for an "MTG Platform" combining:
+- Art Library (this codebase)
+- Deck Primer (Python, to be copied in)
+- Collection Rec (Python, to be copied in)
+- Deck Builder (Node/JS, to be copied in)
+
+**Architecture plan** saved at `/root/.claude/plans/i-am-considering-rolling-swift-sedgewick.md` — full detail on all decisions, phases, language choices, dependency license audit.
+
+**Key decisions made this session:**
+- Use Valkey (not Redis) for caching/job queue — Redis relicensed to SSPL in 2024
+- Always-on `core` service owns Scryfall proxy + normalize API + module health
+- Nginx SSI injects shared module-nav into all service HTML responses
+- Docker Compose profiles control which optional modules run
+- All Python dependencies audited — stack is clean (Flask, Pillow, requests, gunicorn all MIT/BSD)
+
+**Files moved:**
+- `webapp/` → `art_library/webapp/`
+- `tools/` → `art_library/tools/`
+- `run.sh`, `run.bat` → `art_library/`
+
+**Files created:**
+- `docker-compose.yml` — all services, profiles, volumes
+- `.env.example` — host configuration template
+- `art_library/Dockerfile` + `art_library/requirements.txt`
+- `art_library/webapp/__init__.py` — makes webapp a package for gunicorn
+- `core/app.py` + `core/Dockerfile` + `core/requirements.txt` — Scryfall proxy, normalize API, module health
+- `nginx/Dockerfile` + `nginx/nginx.conf` + `nginx/entrypoint.sh` + `nginx/nav.template.html` + `nginx/module_disabled.html`
+- `shared/static/nav.css` + `shared/static/nav-active.js`
+
+**Files updated:**
+- `art_library/webapp/templates/base.html` — added SSI nav include, `data-active-module="art_library"`, shared nav CSS link
+- `art_library/webapp/app.py` — added `/health` endpoint
+- `.gitignore` — added `.env`, Docker artifacts, new cache path
+
+### Next steps
+1. **User action required**: Copy the other three repos into this repo:
+   ```
+   cp -r /path/to/deck_primer     ./deck_primer
+   cp -r /path/to/collection_rec  ./collection_rec
+   cp -r /path/to/deck_builder    ./deck_builder
+   ```
+   Then I can read them and wire up proper Dockerfiles + routes.
+
+2. Test the art library Docker build:
+   ```
+   cp .env.example .env  # fill in ART_LIBRARY_HOST_PATH
+   docker compose --profile art-library up --build
+   ```
+   Expected: art library available at http://localhost:8080
+
+3. Phase 1: scaffold placeholder services for the other three modules, expand nginx routes.
+
+### Open questions
+- Where are the other three repos? Need paths to copy them in.
+- Does the REALESRGAN bind-mount work on the target machine (WSL2/Linux)? Test upscaling.
+- The `test_pipeline.py` at repo root imports from `tools/` directly — update it to `art_library/tools/` path.
+
+---
+
 ## Session: 2026-05-06 (continued — second session)
 
 ### Features added

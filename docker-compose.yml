@@ -1,0 +1,107 @@
+version: "3.9"
+
+# ── Always-on infrastructure ──────────────────────────────────────────────────
+# These services run regardless of which modules are enabled.
+
+services:
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "${HOST_PORT:-8080}:80"
+    volumes:
+      - ./shared/static:/usr/share/nginx/shared:ro
+    environment:
+      ENABLED_MODULES: "${ENABLED_MODULES:-art_library}"
+    depends_on:
+      core:
+        condition: service_healthy
+    restart: unless-stopped
+
+  core:
+    build: ./core
+    expose:
+      - "5000"
+    environment:
+      ART_LIBRARY_URL: "http://art_library:5001/health"
+      DECK_PRIMER_URL:  "http://deck_primer:5002/health"
+      COLLECTION_REC_URL: "http://collection_rec:5003/health"
+      DECK_BUILDER_URL: "http://deck_builder:5004/health"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+# ── Optional modules (enable via profiles) ───────────────────────────────────
+
+  art_library:
+    build: ./art_library
+    profiles: ["art-library"]
+    expose:
+      - "5001"
+    volumes:
+      - type: bind
+        source: "${ART_LIBRARY_HOST_PATH}"
+        target: /library
+      - type: bind
+        source: "${REALESRGAN_HOST_PATH:-/dev/null}"
+        target: /realesrgan
+        read_only: true
+    environment:
+      MTG_ART_LIBRARY: /library
+      REALESRGAN_BIN:  /realesrgan/realesrgan-ncnn-vulkan
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  deck_primer:
+    build: ./deck_primer
+    profiles: ["deck-primer"]
+    expose:
+      - "5002"
+    environment:
+      CORE_URL: "http://core:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  collection_rec:
+    build: ./collection_rec
+    profiles: ["collection-rec"]
+    expose:
+      - "5003"
+    environment:
+      CORE_URL: "http://core:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  deck_builder:
+    build: ./deck_builder
+    profiles: ["deck-builder"]
+    expose:
+      - "5004"
+    environment:
+      CORE_URL: "http://core:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped

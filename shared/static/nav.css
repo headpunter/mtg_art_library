@@ -1,0 +1,86 @@
+/* shared/nav.css — module-switcher nav, loaded by all MTG Platform services */
+
+:root {
+  --platform-bg:       #14171c;
+  --platform-bg-2:     #1b1f26;
+  --platform-ink:      #e7ebf1;
+  --platform-ink-dim:  #aab2c0;
+  --platform-ink-faint:#6e7889;
+  --platform-rule:     #2f3641;
+  --platform-rule-2:   #3a4150;
+  --platform-accent:   #8a7cff;
+  --platform-accent-hi:#a99fff;
+  --platform-sans:     "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --platform-mono:     "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+}
+
+.module-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 32px;
+  background: var(--platform-bg-2);
+  border-bottom: 1px solid var(--platform-rule);
+  position: relative;
+  z-index: 10;
+}
+
+.module-nav__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--platform-mono);
+}
+
+.module-nav__mark {
+  font-size: 16px;
+  color: var(--platform-accent);
+}
+
+.module-nav__name {
+  font-family: var(--platform-sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--platform-ink-faint);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.module-nav__tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.module-nav__tab {
+  font-family: var(--platform-mono);
+  font-size: 11px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--platform-ink-dim);
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  text-decoration: none;
+  transition: color .15s, border-color .15s, background .15s;
+}
+
+.module-nav__tab:hover {
+  color: var(--platform-ink);
+  border-color: var(--platform-rule-2);
+}
+
+.module-nav__tab.active,
+.module-nav__tab[aria-current="page"] {
+  color: var(--platform-accent-hi);
+  border-color: var(--platform-rule-2);
+  background: var(--platform-bg);
+}
+
+.module-nav__tab--disabled,
+.module-nav__tab[aria-disabled="true"] {
+  color: var(--platform-ink-faint) !important;
+  cursor: not-allowed;
+  border-color: transparent !important;
+  background: transparent !important;
+  pointer-events: none;
+}

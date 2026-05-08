@@ -4,12 +4,15 @@
 <meta charset="utf-8">
 <title>{% block title %}MTG Art Library{% endblock %}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/shared/nav.css">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ ver }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
-<body data-page="{% block page_id %}{% endblock %}">
+<body data-page="{% block page_id %}{% endblock %}" data-active-module="art_library">
+
+<!--# include virtual="/_nav" -->
 
 <header class="topbar">
   <div class="brand">
@@ -44,6 +47,7 @@
 <button class="back-to-top" id="backToTop" aria-label="Back to top" hidden>↑</button>
 
 <script src="{{ url_for('static', filename='app.js') }}?v={{ ver }}"></script>
+<script src="/shared/nav-active.js"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
