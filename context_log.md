@@ -5,6 +5,23 @@ Read this at the start of a new session to pick up context fast.
 
 ---
 
+## Session: 2026-10-10
+
+Work this session was **outside this repo** (proxy-card rendering via PhotoCraft MCP + Proxyshop PSDs). Logged here so the next session can find it.
+
+### What was done
+
+1. **Recovered a crashed session** (run from `~/projects`, not this repo). Reconstructed state from its transcript and copied its scripts out of the dead scratchpad into `~/proxyshop_psds/kenrith_matrix/`.
+2. **Kenrith on every frame** — rendered Kenrith, the Returned King through all 21 Proxyshop templates that take a normal legendary creature, using one generic script (`render_matrix.py`) with a 7-entry per-template hint table. 13 clean on the first pass, 8 fixed over three more passes, 0 failing. Gallery artifact published (link in `page/`).
+3. **Memory-aware pipeline** — the box has 14 GB RAM and one PSD costs 4–6 GB to open, which is what killed the previous session. Everything now runs one PSD per subprocess, sequentially (`dump_tree.py`, `run_matrix.sh`), with layer trees dumped to JSON once and inspected via `tree_probe.py` instead of re-opening PSDs.
+
+### Open / known issues
+- PhotoCraft glyph-order patch (`~/.local/bin/photocraft-cli-patched`, diff in `~/proxyshop_psds/future_test_renders/`) is still not sent upstream.
+- `normal-classic` name renders in a sans fallback: the old-border template's name font is not installed.
+- Not yet integrated with the art library webapp; this is still a standalone spike.
+
+---
+
 ## Session: 2026-05-07
 
 ### What was done
