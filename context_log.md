@@ -15,6 +15,8 @@ Work this session was **outside this repo** (proxy-card rendering via PhotoCraft
 2. **Kenrith on every frame** — rendered Kenrith, the Returned King through all 21 Proxyshop templates that take a normal legendary creature, using one generic script (`render_matrix.py`) with a 7-entry per-template hint table. 13 clean on the first pass, 8 fixed over three more passes, 0 failing. Gallery artifact published (link in `page/`).
 3. **Memory-aware pipeline** — the box has 14 GB RAM and one PSD costs 4–6 GB to open, which is what killed the previous session. Everything now runs one PSD per subprocess, sequentially (`dump_tree.py`, `run_matrix.sh`), with layer trees dumped to JSON once and inspected via `tree_probe.py` instead of re-opening PSDs.
 
+4. **Accuracy check against a real print** — rendered Boromir, Warden of the Tower (LTR #302) on the lord-of-the-rings template with its Scryfall art crop and compared to the scan (`~/proxyshop_psds/kenrith_matrix/compare_ltr/final_compare.jpg`). Fixed from it: shape-only box fills with Proxyshop's own `LOTRTemplate` colour maps (taupe twins, cream pinlines/crown), pinline shapes with non-variant names now shown and filled, collector-format legal line on templates that have a Collector group, set symbol via cairosvg from the mtg-vectors SVG (PhotoCraft's `file.placeEmbedded` is disabled under automation). `render_matrix.py` now takes `--card json art [--symbol svg]`.
+
 ### Open / known issues
 - PhotoCraft glyph-order patch (`~/.local/bin/photocraft-cli-patched`, diff in `~/proxyshop_psds/future_test_renders/`) is still not sent upstream.
 - `normal-classic` name renders in a sans fallback: the old-border template's name font is not installed.
