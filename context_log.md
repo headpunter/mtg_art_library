@@ -5,6 +5,18 @@ Read this at the start of a new session to pick up context fast.
 
 ---
 
+## 2026-10-10 (early morning, second session) — laptop freeze, memory cap, Celestine section published
+
+**Outside the repo** (`~/proxyshop_psds/kenrith_matrix`). The 04:22 re-render batch froze the laptop: classic-modern filled all 8 GB of swap. Root cause: PhotoCraft's full-size export composite for that 253-layer PSD runs past 7.6 GB (open alone is 4.9 GB), and the Boromir pinline rule had added 8 full-canvas fill layers on top.
+
+- `capped.sh`: every render now runs in a user cgroup (`systemd-run --user --scope`, MemoryMax 5 GB, MemorySwapMax 0, flock-serialised, waits for 5.5 GB free). Runaway renders get OOM-killed instead of swapping. `run_matrix.sh` and `dump_missing.sh` go through it.
+- `render_matrix.py`: pinline/crown shapes are recoloured in place with `layer.fill.solidColor.set` instead of a clipped fill layer per shape; `TRACE=1` logs every PhotoCraft call with the scope's memory; `preview_export` / `downscale` hints exist but did not get classic-modern under the cap.
+- classic-modern still cannot be exported within the RAM this machine has free (tried 5, 6.5 and 7.8 GB caps, half-size resample, and the 2048 px preview renderer; all OOM-killed at export). Gallery shows its 02:53 pass and says so.
+- Gallery https://claude.ai/artifact/21oHu1urXiEaYiGVPdCpLW republished (v3): 19 re-rendered Kenrith frames, Celestine (40K #10) vs real print section, machine note.
+- /tmp is tmpfs here: old session scratch (1.7 GB) deleted; WIP now lives under `~` (`~/.cache/claude-scratch`, `~/proxyshop_psds`). Repo has a git-excluded `.scratch/` used only as a publish staging dir.
+
+**Open:** classic-modern full-size export (needs ~10 GB free: close Steam/Chrome, or flatten layers in smaller steps); UB name/type bar colour map; 40K faction symbol placement.
+
 ## Session: 2026-10-10
 
 Work this session was **outside this repo** (proxy-card rendering via PhotoCraft MCP + Proxyshop PSDs). Logged here so the next session can find it.
