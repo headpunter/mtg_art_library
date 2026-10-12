@@ -5,6 +5,16 @@ Read this at the start of a new session to pick up context fast.
 
 ---
 
+## 2026-10-11 — proxy renders moved to a container on the NAS
+
+- Built `proxyshop-render` Docker image on the TrueNAS (10.10.0.10): Ubuntu 26.04 (the patched PhotoCraft binary needs glibc 2.43; bookworm failed), python3-pil, python3-cairosvg, the proxyshop-spike and magic-mse fonts, binary, `render_matrix.py` + `card/`. Build context `/mnt/new-mtn/scratch/proxyshop/build`, PSDs rsynced once to `.../psds` (46 files, 17 GB in ~4 min), output `.../out`.
+- `render_matrix.py` now takes `S_DIR`, `PSD_DIR`, `OUT_DIR` from env; the laptop `preview_export` workaround hint was removed.
+- `render_remote.sh` (laptop side): syncs the script, rebuilds image, runs templates via xargs -P N in 24 GB containers, pulls PNGs to `out/remote/`. Full 21-template Kenrith matrix: 3m20s at -j 4, every template rc=0, including classic-modern (true peak 8.2 GB, measured from the container cgroup).
+- Server vs laptop output for `normal`: identical except 0.045% of pixels in the artist name (sub-pixel glyph spacing).
+- Gallery v4: classic-modern now from the NAS render, machine note updated.
+
+**Open:** UB name/type bar colour map; 40K faction symbol placement; wrapper does not yet cap concurrency by free RAM (fine at -j 4 with 53 GB free).
+
 ## 2026-10-10 (early morning, second session) — laptop freeze, memory cap, Celestine section published
 
 **Outside the repo** (`~/proxyshop_psds/kenrith_matrix`). The 04:22 re-render batch froze the laptop: classic-modern filled all 8 GB of swap. Root cause: PhotoCraft's full-size export composite for that 253-layer PSD runs past 7.6 GB (open alone is 4.9 GB), and the Boromir pinline rule had added 8 full-canvas fill layers on top.
