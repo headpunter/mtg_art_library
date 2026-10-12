@@ -5,6 +5,15 @@ Read this at the start of a new session to pick up context fast.
 
 ---
 
+## 2026-10-12 — public showcase gallery on GitHub Pages
+
+- **Sharing rule:** claude.ai artifacts cannot be opened by anyone outside max's account. Public showcases now go to GitHub Pages. Live: https://headpunter.github.io/mtg-frame-gallery/ (repo headpunter/mtg-frame-gallery, source `~/proxyshop_psds/showcase/site`).
+- Showcase: 4 random legendary creatures from Scryfall (Urza MH1, Kellan FDN, Josu Vess DOM, Black Widow MSH), each on 3 frames they were never printed in (plan in `showcase/plan.json`, card JSON/art/set SVG in `showcase/cards/`). All 12 rendered on the NAS via `render_remote.sh --card ... --symbol ...`.
+- `render_matrix.py`: frame colour now derived from the card (`colors` → W/U/B/R/G, multi → Gold, else Land/Artifact) instead of hard-coded W; typeline shrinks in half-point steps until it clears the Expansion Reference box (long typelines were running under the set symbol).
+- Page: Fraunces, dark ink ground, one row per card (real print left, three renders right), lightbox, mobile layout.
+
+**Open:** 40K faction symbol / UB bar colours still not handled; showcase picks are one-shot (rerun the Scryfall script in this log's session for a new draw); the `normal` template exports with the W-only "Rules Text - Noncreature" hint untested for coloured cards.
+
 ## 2026-10-11 — proxy renders moved to a container on the NAS
 
 - Built `proxyshop-render` Docker image on the TrueNAS (10.10.0.10): Ubuntu 26.04 (the patched PhotoCraft binary needs glibc 2.43; bookworm failed), python3-pil, python3-cairosvg, the proxyshop-spike and magic-mse fonts, binary, `render_matrix.py` + `card/`. Build context `/mnt/new-mtn/scratch/proxyshop/build`, PSDs rsynced once to `.../psds` (46 files, 17 GB in ~4 min), output `.../out`.
